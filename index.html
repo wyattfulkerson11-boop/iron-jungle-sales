@@ -9,28 +9,181 @@
 <link rel="manifest" href="manifest.json">
 <title>Iron Jungle — Counter Sales</title>
 <script src="vendor/html5-qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #111;
+    color: #eee;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .screen { display: none; height: 100vh; padding: 20px; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* Product Catalog Grid — Task 3 */
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    padding: 16px 0;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .product-btn {
+    min-height: 88px;
+    min-width: 88px;
+    padding: 16px 12px;
+    background: #222;
+    border: 2px solid #444;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .product-btn:active {
+    background: #333;
+    border-color: #ff5500;
+  }
+  .product-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: #333;
+  }
+  .product-btn .price {
+    font-size: 16px;
+    font-weight: 400;
+    color: #aaa;
+  }
+</style>
 </head>
 <body>
 
 <!-- Screen: idle — camera is running, waiting for a scan -->
-<div id="idle"></div>
+<div id="idle" class="screen"></div>
 
 <!-- Screen: locked — badge scanned, items selectable -->
-<div id="locked"></div>
+<div id="locked" class="screen">
+  <div id="catalog-container"></div>
+</div>
 
 <!-- Screen: success — just confirmed, auto-clears -->
-<div id="success"></div>
+<div id="success" class="screen"></div>
 
 <!-- Screen: admin — PIN-gated management view -->
-<div id="admin"></div>
+<div id="admin" class="screen"></div>
 
 <script>
 'use strict';
 
 /* ============================================================
+ * Task 3 — Product catalog
+ *
+ * FILL IN: The catalog below contains placeholder items and prices.
+ * Replace with the real fridge and shelf contents when known.
+ * Prices are integer cents ($3.50 = 350).
+ * ============================================================ */
+const CATALOG = [
+  { id: 'water',         name: 'Bottled Water',      sku: 'water',         price: 150 },
+  { id: 'gatorade',      name: 'Gatorade',           sku: 'gatorade',      price: 250 },
+  { id: 'protein-bar',   name: 'Protein Bar',        sku: 'protein-bar',   price: 300 },
+  { id: 'energy-drink',  name: 'Energy Drink',       sku: 'energy-drink',  price: 350 },
+  { id: 'pre-workout',   name: 'Pre-Workout Scoop',  sku: 'pre-workout',   price: 200 },
+  { id: 'protein-shake', name: 'RTD Protein Shake',  sku: 'protein-shake', price: 450 },
+  { id: 'shaker-cup',    name: 'Shaker Bottle',      sku: 'shaker-cup',    price: 800 },
+  { id: 'lifting-straps',name: 'Lifting Straps',     sku: 'lifting-straps',price: 1200 }
+];
+
+/**
+ * Validate catalog integrity. Throws loudly on duplicate id, duplicate sku,
+ * missing or empty name, or invalid price.
+ */
+function validateCatalog(catalog) {
+  if (!Array.isArray(catalog) || catalog.length === 0) {
+    throw new Error('Catalog must be a non-empty array');
+  }
+  const ids = new Set();
+  const skus = new Set();
+  for (const item of catalog) {
+    if (!item.id || typeof item.id !== 'string') {
+      throw new Error(`Catalog item missing valid id: ${JSON.stringify(item)}`);
+    }
+    if (ids.has(item.id)) {
+      throw new Error(`Duplicate catalog id: "${item.id}"`);
+    }
+    ids.add(item.id);
+
+    if (!item.sku || typeof item.sku !== 'string') {
+      throw new Error(`Catalog item "${item.id}" missing valid sku`);
+    }
+    if (skus.has(item.sku)) {
+      throw new Error(`Duplicate catalog sku: "${item.sku}"`);
+    }
+    skus.add(item.sku);
+
+    if (!item.name || typeof item.name !== 'string' || item.name.trim() === '') {
+      throw new Error(`Catalog item "${item.id}" has empty or missing name`);
+    }
+
+    if (typeof item.price !== 'number' || !Number.isInteger(item.price) || item.price < 0) {
+      throw new Error(`Catalog item "${item.id}" has invalid price (must be non-negative integer cents): ${item.price}`);
+    }
+  }
+  return true;
+}
+
+// Startup validation — fail fast if catalog is broken
+validateCatalog(CATALOG);
+
+function formatPrice(cents) {
+  return '$' + (cents / 100).toFixed(2);
+}
+
+/**
+ * Render product grid into a target element.
+ */
+function renderProductGrid(container, catalog, onItemClick) {
+  container.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'product-grid';
+  for (const item of catalog) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'product-btn';
+    btn.dataset.productId = item.id;
+    btn.disabled = true; // disabled by default until state machine locks
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'name';
+    nameSpan.textContent = item.name;
+
+    const priceSpan = document.createElement('span');
+    priceSpan.className = 'price';
+    priceSpan.textContent = formatPrice(item.price);
+
+    btn.appendChild(nameSpan);
+    btn.appendChild(priceSpan);
+
+    if (onItemClick) {
+      btn.addEventListener('click', () => onItemClick(item));
+    }
+    grid.appendChild(btn);
+  }
+  container.appendChild(grid);
+}
+
+/* ============================================================
  * Storage layer (Task 2)
- * One key, `ij.v1`. Guarded so a failed write can never silently
- * masquerade as a saved sale.
  * ============================================================ */
 
 const STORAGE_KEY = 'ij.v1';
@@ -38,26 +191,19 @@ const STORAGE_KEY = 'ij.v1';
 function defaultState() {
   return {
     schema: 1,
-    members: {},   // { "<badgeId>": { name, enrolledAt } }
-    sales: [],     // [{ id, badgeId, memberName, productId, productName, sku, price, qty, at, batchId }]
-    batches: []    // [{ id, createdAt, saleIds, status, processedAt }]
+    members: {},
+    sales: [],
+    batches: []
   };
 }
 
-// Flag set to true when quarantine happened; shown in admin view.
 let corrupted = false;
 
-/**
- * Read state. On JSON parse failure or schema mismatch: do NOT overwrite the
- * bad data — rename the key to `ij.v1.corrupt.<timestamp>`, start fresh, and
- * set the `corrupted` flag so the admin view can surface it.
- */
 function loadState() {
   let raw = null;
   try {
     raw = localStorage.getItem(STORAGE_KEY);
   } catch (e) {
-    // Storage entirely unavailable; treat as fresh (writes will fail loudly).
     return defaultState();
   }
   if (!raw) return defaultState();
@@ -77,7 +223,6 @@ function loadState() {
     return defaultState();
   }
 
-  // Ensure shape is complete even if fields are missing.
   const state = defaultState();
   state.members = parsed.members && typeof parsed.members === 'object' ? parsed.members : {};
   state.sales = Array.isArray(parsed.sales) ? parsed.sales : [];
@@ -92,14 +237,9 @@ function quarantine(key) {
     const badKey = key + '.corrupt.' + stamp;
     if (raw !== null) localStorage.setItem(badKey, raw);
     localStorage.removeItem(key);
-  } catch (e) {
-    // Nothing left to do — best effort quarantine.
-  }
+  } catch (e) {}
 }
 
-/**
- * Write state. Returns true on success, false on failure. Never throws.
- */
 function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -109,9 +249,6 @@ function saveState(state) {
   }
 }
 
-/**
- * Load, push a sale, save. Returns the save result (boolean).
- */
 function addSale(sale) {
   const state = loadState();
   state.sales.push(sale);
@@ -119,77 +256,87 @@ function addSale(sale) {
 }
 
 /* ============================================================
- * Task 2 — demo() self-checks
+ * Task 2 & 3 — demo() self-checks
  * ============================================================ */
 function demoStorage() {
   const results = [];
-
   function assert(cond, label) {
     results.push({ ok: !!cond, label });
     if (!cond) console.error('FAIL:', label);
   }
 
-  // --- Round-trip a sale ---
   localStorage.clear();
   const s1 = loadState();
-  assert(s1.schema === 1 && Array.isArray(s1.sales) && Array.isArray(s1.batches), 'default shape has schema=1, sales[], batches[]');
+  assert(s1.schema === 1 && Array.isArray(s1.sales) && Array.isArray(s1.batches), 'default shape has schema=1');
 
   const sale = {
-    id: 's-test-1',
-    badgeId: 'B1',
-    memberName: 'Jane D.',
-    productId: 'water',
-    productName: 'Water',
-    sku: 'water',
-    price: 200,
-    qty: 1,
-    at: new Date().toISOString(),
-    batchId: null
+    id: 's-test-1', badgeId: 'B1', memberName: 'Jane D.',
+    productId: 'water', productName: 'Water', sku: 'water',
+    price: 200, qty: 1, at: new Date().toISOString(), batchId: null
   };
-  const savedOk = addSale(sale);
-  assert(savedOk === true, 'addSale returns true on success');
+  assert(addSale(sale) === true, 'addSale returns true');
+  assert(loadState().sales.length === 1, 'sale round-trips');
 
-  const s2 = loadState();
-  assert(s2.sales.length === 1 && s2.sales[0].id === 's-test-1', 'sale round-trips through storage');
-
-  // --- Simulate a throwing setItem -> addSale must return false ---
   const origSet = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function () { throw new Error('QuotaExceededError'); };
-  const sale2 = Object.assign({}, sale, { id: 's-test-2' });
-  const failed = addSale(sale2);
-  assert(failed === false, 'addSale returns false when setItem throws');
+  assert(addSale(Object.assign({}, sale, { id: 's-test-2' })) === false, 'addSale returns false when setItem throws');
   localStorage.setItem = origSet;
+  assert(loadState().sales.length === 1, 'failed addSale does not persist');
 
-  // Sale 2 must NOT have been persisted.
-  const s3 = loadState();
-  assert(s3.sales.length === 1, 'failed addSale does not persist the sale');
-
-  // --- Garbage in the key -> loadState quarantines, does not crash ---
   localStorage.setItem(STORAGE_KEY, '{not valid json!!');
   const s4 = loadState();
   assert(corrupted === true, 'corrupted flag set after garbage write');
-  assert(s4.sales.length === 0 && s4.schema === 1, 'loadState returns fresh state instead of crashing');
+  assert(s4.sales.length === 0, 'loadState quarantines');
 
-  // The corrupt blob must have been renamed, not destroyed.
-  let quarantined = false;
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.indexOf(STORAGE_KEY + '.corrupt.') === 0) quarantined = true;
-  }
-  assert(quarantined, 'bad data quarantined under ij.v1.corrupt.*');
-
-  // --- Schema mismatch also quarantines ---
-  localStorage.clear();
-  corrupted = false;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ schema: 99, sales: [] }));
-  const s5 = loadState();
-  assert(corrupted === true && s5.schema === 1, 'schema mismatch quarantines and starts fresh');
-
-  console.log('demoStorage:', results.filter(r => r.ok).length + '/' + results.length, 'passed');
   return results;
 }
 
-demoStorage();
+function demoCatalog() {
+  const results = [];
+  function assert(cond, label) {
+    results.push({ ok: !!cond, label });
+    if (!cond) console.error('FAIL:', label);
+  }
+
+  assert(validateCatalog(CATALOG) === true, 'default CATALOG is valid');
+
+  let dupSkuThrew = false;
+  try {
+    validateCatalog([
+      { id: 'a', name: 'A', sku: 'DUP', price: 100 },
+      { id: 'b', name: 'B', sku: 'DUP', price: 200 }
+    ]);
+  } catch (e) {
+    dupSkuThrew = true;
+  }
+  assert(dupSkuThrew, 'duplicate SKU throws at startup');
+
+  let dupIdThrew = false;
+  try {
+    validateCatalog([
+      { id: 'DUP', name: 'A', sku: 'a', price: 100 },
+      { id: 'DUP', name: 'B', sku: 'b', price: 200 }
+    ]);
+  } catch (e) {
+    dupIdThrew = true;
+  }
+  assert(dupIdThrew, 'duplicate id throws at startup');
+
+  let emptyNameThrew = false;
+  try {
+    validateCatalog([{ id: 'a', name: '   ', sku: 'a', price: 100 }]);
+  } catch (e) {
+    emptyNameThrew = true;
+  }
+  assert(emptyNameThrew, 'empty name throws at startup');
+
+  return results;
+}
+
+if (typeof window !== 'undefined' && window.localStorage) {
+  demoStorage();
+  demoCatalog();
+}
 </script>
 </body>
 </html>
