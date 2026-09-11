@@ -1,0 +1,14 @@
+[2026-09-11T23:22:48Z] Hook fired. Input bytes: 716
+[2026-09-11T23:22:48Z] Active loop: 20260911-232246-160be3
+[2026-09-11T23:22:48Z] State: mode=review phase=reviewing round=1/3 signal=none
+[2026-09-11T23:22:48Z] BLOCK: ### Claudex review starting
+
+**Run the runner:**
+
+```
+bash .claude/claudex/20260...
+[2026-09-11T23:29:47Z] Hook fired. Input bytes: 3139
+[2026-09-11T23:29:47Z] Active loop: 20260911-232305-439630
+[2026-09-11T23:29:47Z] State: mode=review phase=cancelled round=1/3 signal=none
+[2026-09-11T23:29:47Z] Unknown review phase: cancelled
+[2026-09-11T23:29:47Z] APPROVE: unknown review phase
