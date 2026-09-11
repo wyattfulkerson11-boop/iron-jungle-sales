@@ -7,11 +7,19 @@
 <style>
   * { box-sizing: border-box; }
   body { font-family: sans-serif; background: #111; color: #eee; height: 100vh; user-select: none; }
-  .screen { display: none; height: 100vh; padding: 20px; }
+  .screen { display: none; height: 100vh; padding: 20px; overflow-y: auto; }
   .screen.active { display: flex; flex-direction: column; }
   .btn { padding: 15px; background: #333; color: white; border: none; border-radius: 8px; font-size: 18px; margin-top: 10px; }
   input { padding: 15px; font-size: 18px; border-radius: 8px; border: 1px solid #444; }
   .qty-ctrl { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 20px 0; }
+  @media print {
+    body * { display: none !important; }
+    #print-container, #print-container * { display: block !important; }
+    #print-container { position: absolute; left: 0; top: 0; width: 100%; color: black; background: white; padding: 20px; font-size: 12pt; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    .total-row { font-weight: bold; }
+  }
 </style>
 </head>
 <body>
@@ -27,18 +35,17 @@
     <button class="btn" id="enroll-btn">Enroll</button>
   </div>
   <button class="btn" id="not-me-btn" style="display:none;">Not me?</button>
-  
   <div class="qty-ctrl">
     <button class="btn" id="qty-dec">-</button>
     <span id="qty-val" style="font-size: 24px;">1</span>
     <button class="btn" id="qty-inc">+</button>
   </div>
-
   <div id="catalog-container"></div>
   <button class="btn" id="cancel-btn">Cancel</button>
 </div>
 
 <div id="success" class="screen"><h2>Sale Recorded!</h2></div>
+<div id="print-container" style="display:none;"></div>
 
 <script>
 'use strict';
@@ -47,27 +54,47 @@ let state = 'idle';
 let currentBadgeId = null;
 let qty = 1;
 
+// Task 7: Export Batches
+function createBatch() {
+  const state = loadState();
+  const pendingSales = state.sales.filter(s => s.batchId === null);
+  if (pendingSales.length === 0) return null;
+  const batchId = crypto.randomUUID();
+  pendingSales.forEach(s => s.batchId = batchId);
+  const batch = { id: batchId, createdAt: new Date().toISOString(), saleIds: pendingSales.map(s => s.id), status: 'pending', processedAt: null };
+  state.batches.push(batch);
+  if (saveState(state)) return batch;
+  return null;
+}
+
+function printBatch(batchId) {
+  const state = loadState();
+  const batch = state.batches.find(b => b.id === batchId);
+  if (!batch) return;
+  const sales = state.sales.filter(s => batch.saleIds.includes(s.id));
+  sales.sort((a, b) => a.memberName.localeCompare(b.memberName));
+  let html = `<h1>Batch Report</h1><p>ID: ${batch.id}</p>`;
+  html += `<table><thead><tr><th>Member</th><th>Item</th><th>Qty</th><th>Price</th><th>Time</th></tr></thead><tbody>`;
+  let total = 0;
+  sales.forEach(s => { total += s.price * s.qty; html += `<tr><td>${s.memberName}</td><td>${s.productName}</td><td>${s.qty}</td><td>${formatPrice(s.price)}</td><td>${new Date(s.at).toLocaleTimeString()}</td></tr>`; });
+  html += `<tr class="total-row"><td colspan="3">Total</td><td colspan="2">${formatPrice(total)}</td></tr></tbody></table>`;
+  document.getElementById('print-container').innerHTML = html;
+  window.print();
+}
+
+function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
+
 function setState(newState) {
   state = newState;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(state === 'recording' ? 'locked' : state).classList.add('active');
-  
   if (state === 'locked') {
     const member = loadState().members[currentBadgeId];
-    if (member) {
-      document.getElementById('greet').textContent = `Hello, ${member.name}`;
-      document.getElementById('enroll-ui').style.display = 'none';
-      document.getElementById('not-me-btn').style.display = 'block';
-    } else {
-      document.getElementById('greet').textContent = `New Member!`;
-      document.getElementById('enroll-ui').style.display = 'flex';
-      document.getElementById('not-me-btn').style.display = 'none';
-    }
+    document.getElementById('greet').textContent = member ? `Hello, ${member.name}` : 'New Member!';
+    document.getElementById('enroll-ui').style.display = member ? 'none' : 'flex';
+    document.getElementById('not-me-btn').style.display = member ? 'block' : 'none';
   }
 }
-
-document.getElementById('qty-inc').onclick = () => { if (qty < 10) qty++; document.getElementById('qty-val').textContent = qty; };
-document.getElementById('qty-dec').onclick = () => { if (qty > 1) qty--; document.getElementById('qty-val').textContent = qty; };
 
 function onScanSuccess(decodedText) {
   if (state !== 'idle') return;
@@ -75,47 +102,25 @@ function onScanSuccess(decodedText) {
   setState('locked');
 }
 
-// Sale capture (Task 6)
 function recordSale(product) {
   if (state !== 'locked') return;
   setState('recording');
-  
-  const sale = {
-    id: crypto.randomUUID(),
-    badgeId: currentBadgeId,
-    memberName: loadState().members[currentBadgeId].name,
-    productId: product.id,
-    productName: product.name,
-    sku: product.sku,
-    price: product.price,
-    qty: qty,
-    at: new Date().toISOString(),
-    batchId: null
-  };
-  
+  const sale = { id: crypto.randomUUID(), badgeId: currentBadgeId, memberName: loadState().members[currentBadgeId].name, productId: product.id, productName: product.name, sku: product.sku, price: product.price, qty: qty, at: new Date().toISOString(), batchId: null };
   if (addSale(sale)) {
     setState('success');
     setTimeout(() => { setState('idle'); qty = 1; document.getElementById('qty-val').textContent = 1; }, 2000);
-  } else {
-    alert("Error saving sale");
-    setState('locked');
-  }
+  } else { setState('locked'); }
 }
 
-// Storage helpers
 const STORAGE_KEY = 'ij.v1';
 function loadState() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"schema":1,"members":{},"sales":[],"batches":[]}'); }
 function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); return true; }
 function addSale(sale) { const s = loadState(); s.sales.push(sale); return saveState(s); }
 
-// UI
-CATALOG.forEach(p => {
-  const btn = document.createElement('button');
-  btn.className = 'btn';
-  btn.textContent = p.name;
-  btn.onclick = () => recordSale(p);
-  document.getElementById('catalog-container').appendChild(btn);
-});
+document.getElementById('qty-inc').onclick = () => { if (qty < 10) qty++; document.getElementById('qty-val').textContent = qty; };
+document.getElementById('qty-dec').onclick = () => { if (qty > 1) qty--; document.getElementById('qty-val').textContent = qty; };
+document.getElementById('cancel-btn').onclick = () => setState('idle');
+CATALOG.forEach(p => { const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = p.name; btn.onclick = () => recordSale(p); document.getElementById('catalog-container').appendChild(btn); });
 
 const scanner = new Html5Qrcode("reader");
 scanner.start({ facingMode: "user" }, { fps: 10 }, onScanSuccess);
