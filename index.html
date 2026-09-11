@@ -11,6 +11,7 @@
   .screen.active { display: flex; flex-direction: column; }
   .btn { padding: 15px; background: #333; color: white; border: none; border-radius: 8px; font-size: 18px; margin-top: 10px; }
   input { padding: 15px; font-size: 18px; border-radius: 8px; border: 1px solid #444; }
+  .qty-ctrl { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 20px 0; }
 </style>
 </head>
 <body>
@@ -26,6 +27,13 @@
     <button class="btn" id="enroll-btn">Enroll</button>
   </div>
   <button class="btn" id="not-me-btn" style="display:none;">Not me?</button>
+  
+  <div class="qty-ctrl">
+    <button class="btn" id="qty-dec">-</button>
+    <span id="qty-val" style="font-size: 24px;">1</span>
+    <button class="btn" id="qty-inc">+</button>
+  </div>
+
   <div id="catalog-container"></div>
   <button class="btn" id="cancel-btn">Cancel</button>
 </div>
@@ -37,6 +45,7 @@
 const CATALOG = [{ id: 'water', name: 'Water', sku: 'water', price: 150 }];
 let state = 'idle';
 let currentBadgeId = null;
+let qty = 1;
 
 function setState(newState) {
   state = newState;
@@ -57,35 +66,57 @@ function setState(newState) {
   }
 }
 
+document.getElementById('qty-inc').onclick = () => { if (qty < 10) qty++; document.getElementById('qty-val').textContent = qty; };
+document.getElementById('qty-dec').onclick = () => { if (qty > 1) qty--; document.getElementById('qty-val').textContent = qty; };
+
 function onScanSuccess(decodedText) {
   if (state !== 'idle') return;
   currentBadgeId = decodedText;
   setState('locked');
 }
 
-document.getElementById('enroll-btn').onclick = () => {
-  const name = document.getElementById('name-input').value.trim();
-  if (!name) return;
-  const state = loadState();
-  state.members[currentBadgeId] = { name, enrolledAt: new Date().toISOString() };
-  if (saveState(state)) {
+// Sale capture (Task 6)
+function recordSale(product) {
+  if (state !== 'locked') return;
+  setState('recording');
+  
+  const sale = {
+    id: crypto.randomUUID(),
+    badgeId: currentBadgeId,
+    memberName: loadState().members[currentBadgeId].name,
+    productId: product.id,
+    productName: product.name,
+    sku: product.sku,
+    price: product.price,
+    qty: qty,
+    at: new Date().toISOString(),
+    batchId: null
+  };
+  
+  if (addSale(sale)) {
+    setState('success');
+    setTimeout(() => { setState('idle'); qty = 1; document.getElementById('qty-val').textContent = 1; }, 2000);
+  } else {
+    alert("Error saving sale");
     setState('locked');
   }
-};
+}
 
-document.getElementById('not-me-btn').onclick = () => {
-  document.getElementById('enroll-ui').style.display = 'flex';
-  document.getElementById('not-me-btn').style.display = 'none';
-};
-
-document.getElementById('cancel-btn').onclick = () => setState('idle');
-
-// Task 2 storage layer (re-included)
+// Storage helpers
 const STORAGE_KEY = 'ij.v1';
 function loadState() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"schema":1,"members":{},"sales":[],"batches":[]}'); }
 function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); return true; }
+function addSale(sale) { const s = loadState(); s.sales.push(sale); return saveState(s); }
 
-// Scanner init
+// UI
+CATALOG.forEach(p => {
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = p.name;
+  btn.onclick = () => recordSale(p);
+  document.getElementById('catalog-container').appendChild(btn);
+});
+
 const scanner = new Html5Qrcode("reader");
 scanner.start({ facingMode: "user" }, { fps: 10 }, onScanSuccess);
 </script>
