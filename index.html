@@ -25,6 +25,7 @@
 <body>
 
 <div id="idle" class="screen active">
+  <h1 id="header">Iron Jungle</h1>
   <div id="reader" style="width:100%; max-width:500px; margin:0 auto;"></div>
 </div>
 
@@ -45,49 +46,39 @@
 </div>
 
 <div id="success" class="screen"><h2>Sale Recorded!</h2></div>
+<div id="admin" class="screen">
+  <h2>Admin</h2>
+  <button class="btn" onclick="setState('idle')">Back</button>
+  <div id="admin-content"></div>
+</div>
 <div id="print-container" style="display:none;"></div>
 
 <script>
 'use strict';
 const CATALOG = [{ id: 'water', name: 'Water', sku: 'water', price: 150 }];
+const ADMIN_PIN = '0000'; // PLACEHOLDER
 let state = 'idle';
 let currentBadgeId = null;
 let qty = 1;
 
-// Task 7: Export Batches
-function createBatch() {
-  const state = loadState();
-  const pendingSales = state.sales.filter(s => s.batchId === null);
-  if (pendingSales.length === 0) return null;
-  const batchId = crypto.randomUUID();
-  pendingSales.forEach(s => s.batchId = batchId);
-  const batch = { id: batchId, createdAt: new Date().toISOString(), saleIds: pendingSales.map(s => s.id), status: 'pending', processedAt: null };
-  state.batches.push(batch);
-  if (saveState(state)) return batch;
-  return null;
-}
-
-function printBatch(batchId) {
-  const state = loadState();
-  const batch = state.batches.find(b => b.id === batchId);
-  if (!batch) return;
-  const sales = state.sales.filter(s => batch.saleIds.includes(s.id));
-  sales.sort((a, b) => a.memberName.localeCompare(b.memberName));
-  let html = `<h1>Batch Report</h1><p>ID: ${batch.id}</p>`;
-  html += `<table><thead><tr><th>Member</th><th>Item</th><th>Qty</th><th>Price</th><th>Time</th></tr></thead><tbody>`;
-  let total = 0;
-  sales.forEach(s => { total += s.price * s.qty; html += `<tr><td>${s.memberName}</td><td>${s.productName}</td><td>${s.qty}</td><td>${formatPrice(s.price)}</td><td>${new Date(s.at).toLocaleTimeString()}</td></tr>`; });
-  html += `<tr class="total-row"><td colspan="3">Total</td><td colspan="2">${formatPrice(total)}</td></tr></tbody></table>`;
-  document.getElementById('print-container').innerHTML = html;
-  window.print();
-}
-
-function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
+// Admin Logic (Task 8)
+document.getElementById('header').oncontextmenu = (e) => {
+  e.preventDefault();
+  const pin = prompt("Enter PIN");
+  if (pin === ADMIN_PIN) setState('admin');
+};
 
 function setState(newState) {
   state = newState;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(state === 'recording' ? 'locked' : state).classList.add('active');
+  if (state === 'admin') {
+    const s = loadState();
+    let html = '<h3>Batches</h3>';
+    s.batches.forEach(b => html += `<p>${b.id} - ${b.status} <button class="btn" onclick="printBatch('${b.id}')">Print</button></p>`);
+    document.getElementById('admin-content').innerHTML = html;
+  }
+  // ... existing UI logic ...
   if (state === 'locked') {
     const member = loadState().members[currentBadgeId];
     document.getElementById('greet').textContent = member ? `Hello, ${member.name}` : 'New Member!';
@@ -96,34 +87,23 @@ function setState(newState) {
   }
 }
 
-function onScanSuccess(decodedText) {
-  if (state !== 'idle') return;
-  currentBadgeId = decodedText;
-  setState('locked');
-}
-
-function recordSale(product) {
-  if (state !== 'locked') return;
-  setState('recording');
-  const sale = { id: crypto.randomUUID(), badgeId: currentBadgeId, memberName: loadState().members[currentBadgeId].name, productId: product.id, productName: product.name, sku: product.sku, price: product.price, qty: qty, at: new Date().toISOString(), batchId: null };
-  if (addSale(sale)) {
-    setState('success');
-    setTimeout(() => { setState('idle'); qty = 1; document.getElementById('qty-val').textContent = 1; }, 2000);
-  } else { setState('locked'); }
-}
-
+// ... existing helper functions (createBatch, printBatch, formatPrice, loadState, etc.) ...
+function createBatch() { const state = loadState(); const pendingSales = state.sales.filter(s => s.batchId === null); if (pendingSales.length === 0) return null; const batchId = crypto.randomUUID(); pendingSales.forEach(s => s.batchId = batchId); const batch = { id: batchId, createdAt: new Date().toISOString(), saleIds: pendingSales.map(s => s.id), status: 'pending', processedAt: null }; state.batches.push(batch); if (saveState(state)) return batch; return null; }
+function printBatch(batchId) { const state = loadState(); const batch = state.batches.find(b => b.id === batchId); if (!batch) return; const sales = state.sales.filter(s => batch.saleIds.includes(s.id)); sales.sort((a, b) => a.memberName.localeCompare(b.memberName)); let html = `<h1>Batch Report</h1><p>ID: ${batch.id}</p>`; html += `<table><thead><tr><th>Member</th><th>Item</th><th>Qty</th><th>Price</th><th>Time</th></tr></thead><tbody>`; let total = 0; sales.forEach(s => { total += s.price * s.qty; html += `<tr><td>${s.memberName}</td><td>${s.productName}</td><td>${s.qty}</td><td>${formatPrice(s.price)}</td><td>${new Date(s.at).toLocaleTimeString()}</td></tr>`; }); html += `<tr class="total-row"><td colspan="3">Total</td><td colspan="2">${formatPrice(total)}</td></tr></tbody></table>`; document.getElementById('print-container').innerHTML = html; window.print(); }
+function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
+function onScanSuccess(decodedText) { if (state !== 'idle') return; currentBadgeId = decodedText; setState('locked'); }
+function recordSale(product) { if (state !== 'locked') return; setState('recording'); const sale = { id: crypto.randomUUID(), badgeId: currentBadgeId, memberName: loadState().members[currentBadgeId].name, productId: product.id, productName: product.name, sku: product.sku, price: product.price, qty: qty, at: new Date().toISOString(), batchId: null }; if (addSale(sale)) { setState('success'); setTimeout(() => { setState('idle'); qty = 1; document.getElementById('qty-val').textContent = 1; }, 2000); } else { setState('locked'); } }
 const STORAGE_KEY = 'ij.v1';
 function loadState() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"schema":1,"members":{},"sales":[],"batches":[]}'); }
 function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); return true; }
 function addSale(sale) { const s = loadState(); s.sales.push(sale); return saveState(s); }
-
 document.getElementById('qty-inc').onclick = () => { if (qty < 10) qty++; document.getElementById('qty-val').textContent = qty; };
 document.getElementById('qty-dec').onclick = () => { if (qty > 1) qty--; document.getElementById('qty-val').textContent = qty; };
 document.getElementById('cancel-btn').onclick = () => setState('idle');
 CATALOG.forEach(p => { const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = p.name; btn.onclick = () => recordSale(p); document.getElementById('catalog-container').appendChild(btn); });
-
 const scanner = new Html5Qrcode("reader");
 scanner.start({ facingMode: "user" }, { fps: 10 }, onScanSuccess);
+
 </script>
 </body>
 </html>
