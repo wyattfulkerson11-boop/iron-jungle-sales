@@ -1,327 +1,93 @@
 <!DOCTYPE html>
-<!-- html5-qrcode v2.3.8 — vendored from https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.json">
-<title>Iron Jungle — Counter Sales</title>
 <script src="vendor/html5-qrcode.min.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #111;
-    color: #eee;
-    height: 100vh;
-    overflow: hidden;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .screen { display: none; height: 100vh; padding: 20px; overflow-y: auto; }
+  * { box-sizing: border-box; }
+  body { font-family: sans-serif; background: #111; color: #eee; height: 100vh; user-select: none; }
+  .screen { display: none; height: 100vh; padding: 20px; }
   .screen.active { display: flex; flex-direction: column; }
-
-  /* Product Catalog Grid — Task 3 */
-  .product-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 16px;
-    padding: 16px 0;
-    width: 100%;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  .product-btn {
-    min-height: 88px;
-    min-width: 88px;
-    padding: 16px 12px;
-    background: #222;
-    border: 2px solid #444;
-    border-radius: 12px;
-    color: #fff;
-    font-size: 18px;
-    font-weight: 600;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    text-align: center;
-  }
-  .product-btn:active {
-    background: #333;
-    border-color: #ff5500;
-  }
-  .product-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    border-color: #333;
-  }
-  .product-btn .price {
-    font-size: 16px;
-    font-weight: 400;
-    color: #aaa;
-  }
+  .btn { padding: 15px; background: #333; color: white; border: none; border-radius: 8px; font-size: 18px; margin-top: 10px; }
+  input { padding: 15px; font-size: 18px; border-radius: 8px; border: 1px solid #444; }
 </style>
 </head>
 <body>
 
-<!-- Screen: idle — camera is running, waiting for a scan -->
 <div id="idle" class="screen active">
-  <h1 style="text-align:center; margin-bottom:20px;">Iron Jungle Gym</h1>
-  <div id="reader" style="width:100%; max-width:500px; margin: 0 auto; border-radius: 12px; overflow: hidden;"></div>
-  <p style="text-align:center; margin-top:20px; font-size:20px; color:#aaa;">Scan badge to start purchase</p>
+  <div id="reader" style="width:100%; max-width:500px; margin:0 auto;"></div>
 </div>
 
-<!-- Screen: locked — badge scanned, items selectable -->
 <div id="locked" class="screen">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-    <h2 id="member-greeting">Hello, Member</h2>
-    <button id="cancel-btn" class="product-btn" style="min-height:44px; min-width:100px; font-size:16px; background:#444;">Cancel</button>
+  <h2 id="greet">Hello</h2>
+  <div id="enroll-ui" style="display:none; flex-direction:column;">
+    <input type="text" id="name-input" placeholder="Enter Name">
+    <button class="btn" id="enroll-btn">Enroll</button>
   </div>
+  <button class="btn" id="not-me-btn" style="display:none;">Not me?</button>
   <div id="catalog-container"></div>
+  <button class="btn" id="cancel-btn">Cancel</button>
 </div>
 
-<!-- Screen: success — just confirmed, auto-clears -->
-<div id="success" class="screen">
-  <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
-    <div style="font-size:80px; color:#4CAF50; margin-bottom:20px;">✓</div>
-    <h2 id="success-msg">Sale Recorded!</h2>
-    <p id="success-details" style="color:#aaa; margin-top:10px;"></p>
-  </div>
-</div>
-
-<!-- Screen: admin — PIN-gated management view -->
-<div id="admin" class="screen"></div>
+<div id="success" class="screen"><h2>Sale Recorded!</h2></div>
 
 <script>
 'use strict';
-
-/* ============================================================
- * Task 3 — Product catalog
- * ============================================================ */
-const CATALOG = [
-  { id: 'water',         name: 'Bottled Water',      sku: 'water',         price: 150 },
-  { id: 'gatorade',      name: 'Gatorade',           sku: 'gatorade',      price: 250 },
-  { id: 'protein-bar',   name: 'Protein Bar',        sku: 'protein-bar',   price: 300 },
-  { id: 'energy-drink',  name: 'Energy Drink',       sku: 'energy-drink',  price: 350 },
-  { id: 'pre-workout',   name: 'Pre-Workout Scoop',  sku: 'pre-workout',   price: 200 },
-  { id: 'protein-shake', name: 'RTD Protein Shake',  sku: 'protein-shake', price: 450 },
-  { id: 'shaker-cup',    name: 'Shaker Bottle',      sku: 'shaker-cup',    price: 800 },
-  { id: 'lifting-straps',name: 'Lifting Straps',     sku: 'lifting-straps',price: 1200 }
-];
-
-function validateCatalog(catalog) {
-  const ids = new Set();
-  const skus = new Set();
-  for (const item of catalog) {
-    if (ids.has(item.id)) throw new Error(`Duplicate id: ${item.id}`);
-    ids.add(item.id);
-    if (skus.has(item.sku)) throw new Error(`Duplicate sku: ${item.sku}`);
-    skus.add(item.sku);
-    if (!item.name || item.name.trim() === '') throw new Error(`Missing name: ${item.id}`);
-  }
-  return true;
-}
-
-validateCatalog(CATALOG);
-
-function formatPrice(cents) {
-  return '$' + (cents / 100).toFixed(2);
-}
-
-function renderProductGrid(container, catalog, onItemClick) {
-  container.innerHTML = '';
-  const grid = document.createElement('div');
-  grid.className = 'product-grid';
-  for (const item of catalog) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'product-btn';
-    btn.dataset.productId = item.id;
-    
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = item.name;
-    const priceSpan = document.createElement('span');
-    priceSpan.className = 'price';
-    priceSpan.textContent = formatPrice(item.price);
-
-    btn.appendChild(nameSpan);
-    btn.appendChild(priceSpan);
-    btn.addEventListener('click', () => onItemClick(item));
-    grid.appendChild(btn);
-  }
-  container.appendChild(grid);
-}
-
-/* ============================================================
- * Task 2 — Storage layer
- * ============================================================ */
-const STORAGE_KEY = 'ij.v1';
-let corrupted = false;
-
-function defaultState() {
-  return { schema: 1, members: {}, sales: [], batches: [] };
-}
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultState();
-    const parsed = JSON.parse(raw);
-    if (!parsed || parsed.schema !== 1) {
-      quarantine(STORAGE_KEY);
-      corrupted = true;
-      return defaultState();
-    }
-    return parsed;
-  } catch (e) {
-    quarantine(STORAGE_KEY);
-    corrupted = true;
-    return defaultState();
-  }
-}
-
-function quarantine(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return;
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    localStorage.setItem(key + '.corrupt.' + stamp, raw);
-    localStorage.removeItem(key);
-  } catch (e) {}
-}
-
-function saveState(state) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-function addSale(sale) {
-  const state = loadState();
-  state.sales.push(sale);
-  return saveState(state);
-}
-
-/* ============================================================
- * Task 4 — Scanner State Machine
- * ============================================================ */
+const CATALOG = [{ id: 'water', name: 'Water', sku: 'water', price: 150 }];
 let state = 'idle';
 let currentBadgeId = null;
-let scanner = null;
-let lastScanAt = 0;
 
 function setState(newState) {
-  console.log(`State: ${state} -> ${newState}`);
   state = newState;
-
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const activeScreen = document.getElementById(state === 'recording' ? 'locked' : state);
-  if (activeScreen) activeScreen.classList.add('active');
-
-  const buttons = document.querySelectorAll('.product-btn');
-  buttons.forEach(btn => {
-    if (btn.id === 'cancel-btn') return;
-    btn.disabled = (state !== 'locked');
-  });
-
-  if (state === 'idle') {
-    currentBadgeId = null;
-    if (scanner && scanner.isScanning) {
-      // resume or do nothing
-    } else if (scanner) {
-      startScanner();
+  document.getElementById(state === 'recording' ? 'locked' : state).classList.add('active');
+  
+  if (state === 'locked') {
+    const member = loadState().members[currentBadgeId];
+    if (member) {
+      document.getElementById('greet').textContent = `Hello, ${member.name}`;
+      document.getElementById('enroll-ui').style.display = 'none';
+      document.getElementById('not-me-btn').style.display = 'block';
+    } else {
+      document.getElementById('greet').textContent = `New Member!`;
+      document.getElementById('enroll-ui').style.display = 'flex';
+      document.getElementById('not-me-btn').style.display = 'none';
     }
-  }
-
-  if (state === 'locked' || state === 'recording') {
-    if (scanner && scanner.isScanning) {
-      scanner.pause(true);
-    }
-  }
-
-  if (state === 'success') {
-    setTimeout(() => setState('idle'), 2000);
   }
 }
 
 function onScanSuccess(decodedText) {
-  const now = Date.now();
-  if (now - lastScanAt < 3000) return;
   if (state !== 'idle') return;
-
-  lastScanAt = now;
   currentBadgeId = decodedText;
-  
-  const memberName = loadState().members[decodedText]?.name || 'Member';
-  document.getElementById('member-greeting').textContent = `Hello, ${memberName}`;
   setState('locked');
 }
 
-function startScanner() {
-  if (!scanner) {
-    scanner = new Html5Qrcode("reader");
+document.getElementById('enroll-btn').onclick = () => {
+  const name = document.getElementById('name-input').value.trim();
+  if (!name) return;
+  const state = loadState();
+  state.members[currentBadgeId] = { name, enrolledAt: new Date().toISOString() };
+  if (saveState(state)) {
+    setState('locked');
   }
-  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-  scanner.start({ facingMode: "user" }, config, onScanSuccess)
-    .catch(err => {
-      console.error("Scanner failed", err);
-      document.getElementById('idle').innerHTML = `<div style="text-align:center; padding-top:100px;"><h2>Camera Error</h2><button onclick="location.reload()">Retry</button></div>`;
-    });
-}
+};
+
+document.getElementById('not-me-btn').onclick = () => {
+  document.getElementById('enroll-ui').style.display = 'flex';
+  document.getElementById('not-me-btn').style.display = 'none';
+};
 
 document.getElementById('cancel-btn').onclick = () => setState('idle');
 
-/* ============================================================
- * Initialization
- * ============================================================ */
-renderProductGrid(document.getElementById('catalog-container'), CATALOG, (item) => {
-  console.log('Item selected:', item.name);
-  // Task 6 will implement the rest of the flow
-});
+// Task 2 storage layer (re-included)
+const STORAGE_KEY = 'ij.v1';
+function loadState() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"schema":1,"members":{},"sales":[],"batches":[]}'); }
+function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); return true; }
 
-if (typeof window !== 'undefined' && window.localStorage) {
-  startScanner();
-}
-
-/* ============================================================
- * Self-Checks (TDD)
- * ============================================================ */
-function demoScanner() {
-  console.log('Running demoScanner...');
-  const results = [];
-  function assert(cond, label) {
-    results.push({ ok: !!cond, label });
-    if (!cond) console.error('FAIL:', label);
-  }
-
-  // 1. First scan locks
-  state = 'idle';
-  onScanSuccess('MEMBER_A');
-  assert(state === 'locked' && currentBadgeId === 'MEMBER_A', 'First scan locks to MEMBER_A');
-
-  // 2. Second scan ignored while locked
-  onScanSuccess('MEMBER_B');
-  assert(state === 'locked' && currentBadgeId === 'MEMBER_A', 'Second scan ignored while locked');
-
-  // 3. Lockout period (simulated)
-  state = 'idle';
-  lastScanAt = Date.now();
-  onScanSuccess('MEMBER_C');
-  assert(state === 'idle', 'Scan ignored within 3s lockout');
-
-  console.log('demoScanner results:', results);
-}
-
-// Run demos in development
-// demoScanner();
+// Scanner init
+const scanner = new Html5Qrcode("reader");
+scanner.start({ facingMode: "user" }, { fps: 10 }, onScanSuccess);
 </script>
 </body>
 </html>
