@@ -24,5 +24,172 @@
 <!-- Screen: admin — PIN-gated management view -->
 <div id="admin"></div>
 
+<script>
+'use strict';
+
+/* ============================================================
+ * Storage layer (Task 2)
+ * One key, `ij.v1`. Guarded so a failed write can never silently
+ * masquerade as a saved sale.
+ * ============================================================ */
+
+const STORAGE_KEY = 'ij.v1';
+
+function defaultState() {
+  return {
+    schema: 1,
+    members: {},   // { "<badgeId>": { name, enrolledAt } }
+    sales: [],     // [{ id, badgeId, memberName, productId, productName, sku, price, qty, at, batchId }]
+    batches: []    // [{ id, createdAt, saleIds, status, processedAt }]
+  };
+}
+
+// Flag set to true when quarantine happened; shown in admin view.
+let corrupted = false;
+
+/**
+ * Read state. On JSON parse failure or schema mismatch: do NOT overwrite the
+ * bad data — rename the key to `ij.v1.corrupt.<timestamp>`, start fresh, and
+ * set the `corrupted` flag so the admin view can surface it.
+ */
+function loadState() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    // Storage entirely unavailable; treat as fresh (writes will fail loudly).
+    return defaultState();
+  }
+  if (!raw) return defaultState();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    quarantine(STORAGE_KEY);
+    corrupted = true;
+    return defaultState();
+  }
+
+  if (!parsed || parsed.schema !== 1) {
+    quarantine(STORAGE_KEY);
+    corrupted = true;
+    return defaultState();
+  }
+
+  // Ensure shape is complete even if fields are missing.
+  const state = defaultState();
+  state.members = parsed.members && typeof parsed.members === 'object' ? parsed.members : {};
+  state.sales = Array.isArray(parsed.sales) ? parsed.sales : [];
+  state.batches = Array.isArray(parsed.batches) ? parsed.batches : [];
+  return state;
+}
+
+function quarantine(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const badKey = key + '.corrupt.' + stamp;
+    if (raw !== null) localStorage.setItem(badKey, raw);
+    localStorage.removeItem(key);
+  } catch (e) {
+    // Nothing left to do — best effort quarantine.
+  }
+}
+
+/**
+ * Write state. Returns true on success, false on failure. Never throws.
+ */
+function saveState(state) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Load, push a sale, save. Returns the save result (boolean).
+ */
+function addSale(sale) {
+  const state = loadState();
+  state.sales.push(sale);
+  return saveState(state);
+}
+
+/* ============================================================
+ * Task 2 — demo() self-checks
+ * ============================================================ */
+function demoStorage() {
+  const results = [];
+
+  function assert(cond, label) {
+    results.push({ ok: !!cond, label });
+    if (!cond) console.error('FAIL:', label);
+  }
+
+  // --- Round-trip a sale ---
+  localStorage.clear();
+  const s1 = loadState();
+  assert(s1.schema === 1 && Array.isArray(s1.sales) && Array.isArray(s1.batches), 'default shape has schema=1, sales[], batches[]');
+
+  const sale = {
+    id: 's-test-1',
+    badgeId: 'B1',
+    memberName: 'Jane D.',
+    productId: 'water',
+    productName: 'Water',
+    sku: 'water',
+    price: 200,
+    qty: 1,
+    at: new Date().toISOString(),
+    batchId: null
+  };
+  const savedOk = addSale(sale);
+  assert(savedOk === true, 'addSale returns true on success');
+
+  const s2 = loadState();
+  assert(s2.sales.length === 1 && s2.sales[0].id === 's-test-1', 'sale round-trips through storage');
+
+  // --- Simulate a throwing setItem -> addSale must return false ---
+  const origSet = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function () { throw new Error('QuotaExceededError'); };
+  const sale2 = Object.assign({}, sale, { id: 's-test-2' });
+  const failed = addSale(sale2);
+  assert(failed === false, 'addSale returns false when setItem throws');
+  localStorage.setItem = origSet;
+
+  // Sale 2 must NOT have been persisted.
+  const s3 = loadState();
+  assert(s3.sales.length === 1, 'failed addSale does not persist the sale');
+
+  // --- Garbage in the key -> loadState quarantines, does not crash ---
+  localStorage.setItem(STORAGE_KEY, '{not valid json!!');
+  const s4 = loadState();
+  assert(corrupted === true, 'corrupted flag set after garbage write');
+  assert(s4.sales.length === 0 && s4.schema === 1, 'loadState returns fresh state instead of crashing');
+
+  // The corrupt blob must have been renamed, not destroyed.
+  let quarantined = false;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.indexOf(STORAGE_KEY + '.corrupt.') === 0) quarantined = true;
+  }
+  assert(quarantined, 'bad data quarantined under ij.v1.corrupt.*');
+
+  // --- Schema mismatch also quarantines ---
+  localStorage.clear();
+  corrupted = false;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ schema: 99, sales: [] }));
+  const s5 = loadState();
+  assert(corrupted === true && s5.schema === 1, 'schema mismatch quarantines and starts fresh');
+
+  console.log('demoStorage:', results.filter(r => r.ok).length + '/' + results.length, 'passed');
+  return results;
+}
+
+demoStorage();
+</script>
 </body>
 </html>
