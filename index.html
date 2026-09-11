@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<!-- html5-qrcode v2.3.8 — vendored from https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>Iron Jungle — Counter Sales</title>
+<script src="vendor/html5-qrcode.min.js"></script>
+</head>
+<body>
+
+<!-- Screen: idle — camera is running, waiting for a scan -->
+<div id="idle"></div>
+
+<!-- Screen: locked — badge scanned, items selectable -->
+<div id="locked"></div>
+
+<!-- Screen: success — just confirmed, auto-clears -->
+<div id="success"></div>
+
+<!-- Screen: admin — PIN-gated management view -->
+<div id="admin"></div>
+
+</body>
+</html>
