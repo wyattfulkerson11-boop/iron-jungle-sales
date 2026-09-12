@@ -28,17 +28,17 @@ git add index.html && git commit -m "chore: set admin PIN" && git push
 
 ### 2. Put in the real items
 
-Still in `index.html`, find `const CATALOG = [`. Replace the placeholders with
+Still in `index.html`, find `const CATALOG = [`. Edit the real items (transcribed from the POS) to match
 what's actually in the fridge and on the shelf.
 
 ```js
-{ group: 'drinks', id: 'gatorade', name: 'Gatorade', sku: 'gatorade', price: 250 },
+{ group: 'hydration', id: 'gatorade', name: 'Gatorade', sku: 'gatorade', price: 150 },
 ```
 
 Four rules, each of which bites if you get it wrong:
 
 - **Prices are integer cents.** `$3.50` is `350`, never `3.50`.
-- **`group` must be `drinks`, `meal-prep`, or `supplements`** — the ids in
+- **`group` must be `energy`, `protein-drinks`, `hydration`, or `food`** — the ids in
   `const GROUPS` just above. A typo throws on startup rather than quietly
   filing the item under no tab, where nobody could sell it.
 - **`id` and `sku` must each be unique** across the whole catalog. They can be

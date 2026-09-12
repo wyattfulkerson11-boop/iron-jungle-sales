@@ -439,22 +439,24 @@
 /* ============================================================
  * Task 3 — Product catalog
  *
- * Tab order on the purchase screen, first one opens by default. Drinks lead
- * because the drinks fridge outsells everything else, so the highest-traffic
+ * Tab order on the purchase screen, first one opens by default. Energy leads
+ * because the energy drinks fill most of the fridge, so the highest-traffic
  * item is one tap; anything in another category costs two.
  *
  * A group with no items has no tab, and if only one group has items the tab
  * row disappears entirely — so this works with a part-filled catalog.
  * ============================================================ */
 const GROUPS = [
-  { id: 'drinks',      label: 'Drinks' },
-  { id: 'meal-prep',   label: 'Meal Prep' },
-  { id: 'supplements', label: 'Supplements' }
+  { id: 'energy',         label: 'Energy' },
+  { id: 'protein-drinks', label: 'Protein Drinks' },
+  { id: 'hydration',      label: 'Water & Sports' },
+  { id: 'food',           label: 'Bars & Snacks' }
 ];
 
 /* ============================================================
- * FILL IN: placeholder items and prices. Replace with the real fridge and
- * shelf contents. Two rules that bite:
+ * Transcribed 2026-09-12 from the gym POS "Food and Drinks" screen. Names
+ * match the POS tiles so the worker can search them when keying a batch.
+ * Supplements are rung up at the desk and deliberately left out. Two rules:
  *
  *   - Prices are integer CENTS. $3.50 is 350, never 3.50.
  *   - `group` must be one of the GROUPS ids above. A typo throws on startup
@@ -465,18 +467,160 @@ const GROUPS = [
  * assigned by position, which is what stops two neighbours sharing a colour.
  * ============================================================ */
 const CATALOG = [
-  { group: 'drinks',      id: 'water',         name: 'Bottled Water',     sku: 'water',         price: 150 },
-  { group: 'drinks',      id: 'gatorade',      name: 'Gatorade',          sku: 'gatorade',      price: 250 },
-  { group: 'drinks',      id: 'energy-drink',  name: 'Energy Drink',      sku: 'energy-drink',  price: 350 },
-  { group: 'drinks',      id: 'protein-shake', name: 'RTD Protein Shake', sku: 'protein-shake', price: 450 },
+  { group: "energy", id: "1st-phorm-energy", name: "1st Phorm Energy", sku: "1st-phorm-energy", price: 325 },
+  { group: "energy", id: "3d-energy-drink-all-flavors", name: "3D Energy Drink (all flavors)", sku: "3d-energy-drink-all-flavors", price: 350 },
+  { group: "energy", id: "3d-single-2-00", name: "3D Single 2.00", sku: "3d-single-2-00", price: 250 },
+  { group: "energy", id: "abe-all-black-everything-energy-drink", name: "ABE (All Black Everything) Energy Drink", sku: "abe-all-black-everything-energy-drink", price: 275 },
+  { group: "energy", id: "adrenaline-rush", name: "Adrenaline Rush", sku: "adrenaline-rush", price: 275 },
+  { group: "energy", id: "ai-energy", name: "Ai Energy", sku: "ai-energy", price: 325 },
+  { group: "energy", id: "alani-nu-carbonated", name: "Alani Nu Carbonated", sku: "alani-nu-carbonated", price: 275 },
+  { group: "energy", id: "ap-sports-regime-preworkout-drink", name: "AP Sports Regime Preworkout Drink", sku: "ap-sports-regime-preworkout-drink", price: 350 },
+  { group: "energy", id: "apesht-untamed-preworkout-drink", name: "Apesh*t Untamed Preworkout Drink", sku: "apesht-untamed-preworkout-drink", price: 350 },
+  { group: "energy", id: "bang", name: "Bang", sku: "bang", price: 275 },
+  { group: "energy", id: "big-noise", name: "Big Noise", sku: "big-noise", price: 375 },
+  { group: "energy", id: "black-magic-bzrk", name: "Black Magic Bzrk", sku: "black-magic-bzrk", price: 375 },
+  { group: "energy", id: "bloom", name: "Bloom", sku: "bloom", price: 300 },
+  { group: "energy", id: "bucked-up-drink", name: "Bucked UP Drink", sku: "bucked-up-drink", price: 400 },
+  { group: "energy", id: "bum-energy-drink", name: "BUM Energy Drink", sku: "bum-energy-drink", price: 325 },
+  { group: "energy", id: "bum-thavage-preworkout-drink", name: "Bum Thavage Preworkout Drink", sku: "bum-thavage-preworkout-drink", price: 375 },
+  { group: "energy", id: "c4-regular-c4-smart", name: "C4 Regular/ C4 Smart", sku: "c4-regular-c4-smart", price: 325 },
+  { group: "energy", id: "celsius-single-drink", name: "Celsius Single Drink", sku: "celsius-single-drink", price: 325 },
+  { group: "energy", id: "echelon-energy-drink", name: "Echelon Energy Drink", sku: "echelon-energy-drink", price: 375 },
+  { group: "energy", id: "extreme-shock-single", name: "Extreme Shock Single", sku: "extreme-shock-single", price: 349 },
+  { group: "energy", id: "fit-tea-energy", name: "Fit Tea Energy", sku: "fit-tea-energy", price: 275 },
+  { group: "energy", id: "frankenstein-energy", name: "Frankenstein Energy", sku: "frankenstein-energy", price: 250 },
+  { group: "energy", id: "fubar", name: "FUBAR", sku: "fubar", price: 275 },
+  { group: "energy", id: "ghost-carbonated", name: "Ghost Carbonated", sku: "ghost-carbonated", price: 400 },
+  { group: "energy", id: "goat-fuel", name: "Goat Fuel", sku: "goat-fuel", price: 325 },
+  { group: "energy", id: "gorilla-mind-energy-drink", name: "Gorilla Mind Energy Drink", sku: "gorilla-mind-energy-drink", price: 400 },
+  { group: "energy", id: "gym-weed", name: "Gym Weed", sku: "gym-weed", price: 385 },
+  { group: "energy", id: "hostility-pre-workout-drink-all-flavors", name: "Hostility Pre Workout Drink (all flavors)", sku: "hostility-pre-workout-drink-all-flavors", price: 450 },
+  { group: "energy", id: "hyde-energy", name: "Hyde Energy", sku: "hyde-energy", price: 325 },
+  { group: "energy", id: "hydroxycut", name: "Hydroxycut", sku: "hydroxycut", price: 275 },
+  { group: "energy", id: "impulse-energy", name: "Impulse Energy", sku: "impulse-energy", price: 325 },
+  { group: "energy", id: "jetfuel-energy", name: "JetFuel Energy", sku: "jetfuel-energy", price: 325 },
+  { group: "energy", id: "jocko-energy-drink", name: "Jocko Energy Drink", sku: "jocko-energy-drink", price: 325 },
+  { group: "energy", id: "jolt-energy", name: "Jolt Energy", sku: "jolt-energy", price: 375 },
+  { group: "energy", id: "jstwrk-energy-drink", name: "JSTWRK Energy Drink", sku: "jstwrk-energy-drink", price: 275 },
+  { group: "energy", id: "lost-and-found-drinks", name: "Lost and Found Drinks", sku: "lost-and-found-drinks", price: 300 },
+  { group: "energy", id: "lucky-energy-drinks-all-flavors", name: "Lucky Energy Drinks (all flavors)", sku: "lucky-energy-drinks-all-flavors", price: 382 },
+  { group: "energy", id: "monster-energy", name: "Monster Energy", sku: "monster-energy", price: 300 },
+  { group: "energy", id: "musclepharm-combat-energy-drink", name: "Musclepharm Combat Energy Drink", sku: "musclepharm-combat-energy-drink", price: 300 },
+  { group: "energy", id: "nocco-bcaa", name: "Nocco BCAA", sku: "nocco-bcaa", price: 325 },
+  { group: "energy", id: "optimum-nutrition-amino-energy", name: "Optimum Nutrition Amino Energy", sku: "optimum-nutrition-amino-energy", price: 325 },
+  { group: "energy", id: "oxy-shred", name: "Oxy Shred", sku: "oxy-shred", price: 325 },
+  { group: "energy", id: "pandamic", name: "Pandamic", sku: "pandamic", price: 350 },
+  { group: "energy", id: "pur-noxygen-drink", name: "PUR Noxygen Drink", sku: "pur-noxygen-drink", price: 350 },
+  { group: "energy", id: "raze", name: "Raze", sku: "raze", price: 275 },
+  { group: "energy", id: "redcon-carbonated-energy-drink-all-flavors", name: "Redcon Carbonated Energy Drink (all flavors)", sku: "redcon-carbonated-energy-drink-all-flavors", price: 335 },
+  { group: "energy", id: "reign-energy", name: "Reign Energy", sku: "reign-energy", price: 325 },
+  { group: "energy", id: "reign-single-drink", name: "Reign Single Drink", sku: "reign-single-drink", price: 300 },
+  { group: "energy", id: "ringleader-high-wire", name: "Ringleader High Wire", sku: "ringleader-high-wire", price: 300 },
+  { group: "energy", id: "ryse-blackout-preworkout-drink", name: "RYSE Blackout Preworkout Drink", sku: "ryse-blackout-preworkout-drink", price: 325 },
+  { group: "energy", id: "ryse-fuel", name: "Ryse Fuel", sku: "ryse-fuel", price: 325 },
+  { group: "energy", id: "ryse-loaded-pre-all-flavors", name: "Ryse Loaded Pre (all flavors)", sku: "ryse-loaded-pre-all-flavors", price: 330 },
+  { group: "energy", id: "total-war-preworkout-drink-all-flavors", name: "Total War Preworkout Drink (all flavors)", sku: "total-war-preworkout-drink-all-flavors", price: 375 },
+  { group: "energy", id: "train-naked-critical-fx-preworkout", name: "Train Naked Critical FX Preworkout", sku: "train-naked-critical-fx-preworkout", price: 350 },
+  { group: "energy", id: "train-naked-plasma-pump", name: "Train Naked Plasma Pump", sku: "train-naked-plasma-pump", price: 350 },
+  { group: "energy", id: "train-naked-stim-pump-preworkout", name: "Train Naked Stim Pump Preworkout", sku: "train-naked-stim-pump-preworkout", price: 350 },
+  { group: "energy", id: "vmi-kxr-preworkout", name: "VMI KXR Preworkout", sku: "vmi-kxr-preworkout", price: 375 },
+  { group: "energy", id: "xs-energy-drink", name: "XS Energy Drink", sku: "xs-energy-drink", price: 345 },
 
-  { group: 'meal-prep',   id: 'meal-chicken',  name: 'Chicken & Rice',    sku: 'meal-chicken',  price: 900 },
-  { group: 'meal-prep',   id: 'meal-beef',     name: 'Beef & Potato',     sku: 'meal-beef',     price: 950 },
+  { group: "protein-drinks", id: "alani-fit-shake", name: "Alani Fit Shake", sku: "alani-fit-shake", price: 325 },
+  { group: "protein-drinks", id: "barebell-protein-soda", name: "Barebell Protein Soda", sku: "barebell-protein-soda", price: 375 },
+  { group: "protein-drinks", id: "core-power", name: "Core Power", sku: "core-power", price: 525 },
+  { group: "protein-drinks", id: "dymatize-protein-shakes-all-flavors", name: "Dymatize Protein Shakes (all flavors)", sku: "dymatize-protein-shakes-all-flavors", price: 375 },
+  { group: "protein-drinks", id: "evolve-protein-drink", name: "EVOLVE Protein Drink", sku: "evolve-protein-drink", price: 275 },
+  { group: "protein-drinks", id: "gatorade-zero-protein", name: "Gatorade ZERO Protein", sku: "gatorade-zero-protein", price: 225 },
+  { group: "protein-drinks", id: "genius-gourmet-sparkling-protein", name: "Genius Gourmet Sparkling Protein", sku: "genius-gourmet-sparkling-protein", price: 325 },
+  { group: "protein-drinks", id: "ghost-protein-drink", name: "Ghost Protein Drink", sku: "ghost-protein-drink", price: 400 },
+  { group: "protein-drinks", id: "jocko-protein", name: "Jocko Protein", sku: "jocko-protein", price: 475 },
+  { group: "protein-drinks", id: "joyburst-protein-soda", name: "Joyburst Protein Soda", sku: "joyburst-protein-soda", price: 375 },
+  { group: "protein-drinks", id: "muscle-milk", name: "Muscle Milk", sku: "muscle-milk", price: 275 },
+  { group: "protein-drinks", id: "muscle-milk-protein-shake", name: "Muscle Milk Protein Shake", sku: "muscle-milk-protein-shake", price: 350 },
+  { group: "protein-drinks", id: "nurri-protein-drink", name: "Nurri Protein Drink", sku: "nurri-protein-drink", price: 275 },
+  { group: "protein-drinks", id: "oikos-protein-drink", name: "Oikos Protein Drink", sku: "oikos-protein-drink", price: 300 },
+  { group: "protein-drinks", id: "owyn-vegan-plant-protein", name: "OWYN Vegan Plant Protein", sku: "owyn-vegan-plant-protein", price: 275 },
+  { group: "protein-drinks", id: "premier-protein", name: "Premier Protein", sku: "premier-protein", price: 300 },
+  { group: "protein-drinks", id: "prime-protein-shakes", name: "Prime Protein Shakes", sku: "prime-protein-shakes", price: 298 },
+  { group: "protein-drinks", id: "quest-protein-drink", name: "Quest Protein Drink", sku: "quest-protein-drink", price: 475 },
+  { group: "protein-drinks", id: "raw-protein-shake-all-flavors", name: "Raw Protein Shake (all flavors)", sku: "raw-protein-shake-all-flavors", price: 450 },
+  { group: "protein-drinks", id: "ready-protein-water", name: "Ready Protein Water", sku: "ready-protein-water", price: 275 },
+  { group: "protein-drinks", id: "ryse-clear-protein", name: "Ryse Clear Protein", sku: "ryse-clear-protein", price: 318 },
+  { group: "protein-drinks", id: "shamrock-rockn-protein", name: "Shamrock Rock'n Protein", sku: "shamrock-rockn-protein", price: 300 },
+  { group: "protein-drinks", id: "six-star-fruit-loop-protein-shake", name: "Six Star Fruit Loop Protein Shake", sku: "six-star-fruit-loop-protein-shake", price: 375 },
+  { group: "protein-drinks", id: "slate-protein-shakes-all-flavors", name: "Slate Protein Shakes (all flavors)", sku: "slate-protein-shakes-all-flavors", price: 458 },
+  { group: "protein-drinks", id: "slimfast-high-protein-caramel-latte", name: "Slimfast High Protein Caramel Latte", sku: "slimfast-high-protein-caramel-latte", price: 325 },
+  { group: "protein-drinks", id: "starbucks-protein-shake", name: "Starbucks Protein Shake", sku: "starbucks-protein-shake", price: 375 },
 
-  { group: 'supplements', id: 'protein-bar',   name: 'Protein Bar',       sku: 'protein-bar',   price: 300 },
-  { group: 'supplements', id: 'pre-workout',   name: 'Pre-Workout Scoop', sku: 'pre-workout',   price: 200 },
-  { group: 'supplements', id: 'shaker-cup',    name: 'Shaker Bottle',     sku: 'shaker-cup',    price: 800 },
-  { group: 'supplements', id: 'lifting-straps',name: 'Lifting Straps',    sku: 'lifting-straps',price: 1200 }
+  { group: "hydration", id: "water", name: "Water", sku: "water", price: 150 },
+  { group: "hydration", id: "gatorade", name: "Gatorade", sku: "gatorade", price: 150 },
+  { group: "hydration", id: "propel", name: "Propel", sku: "propel", price: 175 },
+  { group: "hydration", id: "liquid-death", name: "Liquid Death", sku: "liquid-death", price: 200 },
+  { group: "hydration", id: "body-armour", name: "Body Armour", sku: "body-armour", price: 225 },
+  { group: "hydration", id: "powerade", name: "PowerAde", sku: "powerade", price: 225 },
+  { group: "hydration", id: "biosteel-sports-drink", name: "Biosteel Sports Drink", sku: "biosteel-sports-drink", price: 275 },
+  { group: "hydration", id: "true-north-seltzer", name: "True North Seltzer", sku: "true-north-seltzer", price: 275 },
+  { group: "hydration", id: "lmnt-electrolyte-drink-mix", name: "LMNT Electrolyte Drink Mix", sku: "lmnt-electrolyte-drink-mix", price: 1000 },
+
+  { group: "food", id: "alani-fit-snack-bar", name: "Alani Fit Snack Bar", sku: "alani-fit-snack-bar", price: 275 },
+  { group: "food", id: "anabar", name: "AnaBar", sku: "anabar", price: 350 },
+  { group: "food", id: "atlas-protein-bar", name: "Atlas Protein Bar", sku: "atlas-protein-bar", price: 300 },
+  { group: "food", id: "axe-and-sledge-homemade-bar", name: "Axe & Sledge HomeMade Bar", sku: "axe-and-sledge-homemade-bar", price: 325 },
+  { group: "food", id: "barebells-protein-bar", name: "Barebells Protein Bar", sku: "barebells-protein-bar", price: 300 },
+  { group: "food", id: "barebells-soft-protein-bars", name: "Barebells Soft Protein Bars", sku: "barebells-soft-protein-bars", price: 325 },
+  { group: "food", id: "beef-jerky-chips", name: "Beef Jerky Chips", sku: "beef-jerky-chips", price: 650 },
+  { group: "food", id: "built-bar", name: "Built Bar", sku: "built-bar", price: 300 },
+  { group: "food", id: "eat-me-brownie", name: "Eat Me Brownie", sku: "eat-me-brownie", price: 275 },
+  { group: "food", id: "enh-pancakes", name: "ENH Pancakes", sku: "enh-pancakes", price: 300 },
+  { group: "food", id: "fit-crunch", name: "Fit Crunch", sku: "fit-crunch", price: 300 },
+  { group: "food", id: "fitzels-pretzels", name: "Fitzels Pretzels", sku: "fitzels-pretzels", price: 350 },
+  { group: "food", id: "foundation-protein-bar", name: "Foundation Protein Bar", sku: "foundation-protein-bar", price: 325 },
+  { group: "food", id: "fulfil-protein-bar", name: "Fulfil Protein Bar", sku: "fulfil-protein-bar", price: 306 },
+  { group: "food", id: "fulfill-bar", name: "Fulfill Bar", sku: "fulfill-bar", price: 300 },
+  { group: "food", id: "ghost-protein-bar", name: "Ghost Protein Bar", sku: "ghost-protein-bar", price: 325 },
+  { group: "food", id: "grab-the-gold-bar", name: "Grab the GOLD Bar", sku: "grab-the-gold-bar", price: 325 },
+  { group: "food", id: "grenade-protein-bar-all-flavors", name: "Grenade Protein Bar (all flavors)", sku: "grenade-protein-bar-all-flavors", price: 325 },
+  { group: "food", id: "hangry-boy", name: "Hangry Boy", sku: "hangry-boy", price: 325 },
+  { group: "food", id: "joy-full-meals", name: "Joy-Full Meals", sku: "joy-full-meals", price: 900 },
+  { group: "food", id: "knock-the-carb", name: "Knock The Carb", sku: "knock-the-carb", price: 275 },
+  { group: "food", id: "large-4oz-quest-chips", name: "Large 4oz Quest Chips", sku: "large-4oz-quest-chips", price: 625 },
+  { group: "food", id: "larry-and-lennys-complete-cookie", name: "Larry & Lenny's Complete Cookie", sku: "larry-and-lennys-complete-cookie", price: 350 },
+  { group: "food", id: "legendary-popped-chips", name: "Legendary Popped Chips", sku: "legendary-popped-chips", price: 395 },
+  { group: "food", id: "metrx-bar", name: "MetRx Bar", sku: "metrx-bar", price: 375 },
+  { group: "food", id: "mf-muscle-sandwich", name: "MF Muscle Sandwich", sku: "mf-muscle-sandwich", price: 275 },
+  { group: "food", id: "moose-track-brownie-all-flavors", name: "Moose Track Brownie (all flavors)", sku: "moose-track-brownie-all-flavors", price: 272 },
+  { group: "food", id: "mre", name: "MRE", sku: "mre", price: 525 },
+  { group: "food", id: "mre-bars-all-flavors", name: "MRE Bars (all flavors)", sku: "mre-bars-all-flavors", price: 375 },
+  { group: "food", id: "muscle-bar", name: "Muscle Bar", sku: "muscle-bar", price: 325 },
+  { group: "food", id: "muscle-sport-whoopie-cookie", name: "Muscle Sport Whoopie Cookie", sku: "muscle-sport-whoopie-cookie", price: 375 },
+  { group: "food", id: "obvi-bar", name: "Obvi Bar", sku: "obvi-bar", price: 275 },
+  { group: "food", id: "one-bar-one-crunch-bar", name: "ONE Bar/ONE Crunch Bar", sku: "one-bar-one-crunch-bar", price: 275 },
+  { group: "food", id: "ostrim-beef-stick", name: "Ostrim Beef Stick", sku: "ostrim-beef-stick", price: 250 },
+  { group: "food", id: "outright-bar", name: "Outright Bar", sku: "outright-bar", price: 275 },
+  { group: "food", id: "pb-fit", name: "PB Fit", sku: "pb-fit", price: 1600 },
+  { group: "food", id: "power-crunch", name: "Power Crunch", sku: "power-crunch", price: 275 },
+  { group: "food", id: "power-pie", name: "Power Pie", sku: "power-pie", price: 325 },
+  { group: "food", id: "prime-bites-protein-brownie", name: "Prime Bites Protein Brownie", sku: "prime-bites-protein-brownie", price: 325 },
+  { group: "food", id: "prime-bites-protein-muffins", name: "Prime Bites Protein Muffins", sku: "prime-bites-protein-muffins", price: 325 },
+  { group: "food", id: "protein-chuckles-cookie-my-cookie-dealer", name: "Protein Chuckles Cookie - My Cookie Dealer", sku: "protein-chuckles-cookie-my-cookie-dealer", price: 275 },
+  { group: "food", id: "protein-crisp-bar", name: "Protein Crisp Bar", sku: "protein-crisp-bar", price: 300 },
+  { group: "food", id: "protein-cups", name: "Protein Cups", sku: "protein-cups", price: 325 },
+  { group: "food", id: "pure-protein", name: "Pure Protein", sku: "pure-protein", price: 275 },
+  { group: "food", id: "purus-protein-crispy-treat", name: "Purus Protein Crispy Treat", sku: "purus-protein-crispy-treat", price: 300 },
+  { group: "food", id: "quest-bar", name: "Quest Bar", sku: "quest-bar", price: 275 },
+  { group: "food", id: "quest-chips", name: "Quest Chips", sku: "quest-chips", price: 350 },
+  { group: "food", id: "quest-cookie", name: "Quest Cookie", sku: "quest-cookie", price: 275 },
+  { group: "food", id: "quest-peanut-butter-cups", name: "Quest Peanut Butter Cups", sku: "quest-peanut-butter-cups", price: 247 },
+  { group: "food", id: "raw-bar", name: "Raw Bar", sku: "raw-bar", price: 325 },
+  { group: "food", id: "ready-protein-puffs", name: "Ready Protein Puffs", sku: "ready-protein-puffs", price: 325 },
+  { group: "food", id: "redefine-skippy-cookies", name: "Redefine Skippy Cookies", sku: "redefine-skippy-cookies", price: 375 },
+  { group: "food", id: "rule-1-bar", name: "Rule 1 Bar", sku: "rule-1-bar", price: 300 },
+  { group: "food", id: "sinfit-bar", name: "Sinfit Bar", sku: "sinfit-bar", price: 100 },
+  { group: "food", id: "slimfast-keto-caramel-nuts-and-chocolate", name: "Slimfast Keto Caramel Nuts & Chocolate", sku: "slimfast-keto-caramel-nuts-and-chocolate", price: 150 },
+  { group: "food", id: "tasty-pastry-legendary-pop-tart-sweet-roll", name: "Tasty Pastry Legendary Pop Tart/Sweet Roll", sku: "tasty-pastry-legendary-pop-tart-sweet-roll", price: 350 },
+  { group: "food", id: "wicked-cutz-sticks", name: "Wicked Cutz Sticks", sku: "wicked-cutz-sticks", price: 250 }
+
 ];
 
 /** Items in one group, in catalog order. */
@@ -566,7 +710,7 @@ function plateVar(id) {
 
 /**
  * Which category tab is open. Reset per member so the next person in line
- * always starts on Drinks rather than inheriting where the last one browsed.
+ * always starts on the first tab rather than inheriting where the last one browsed.
  */
 let activeGroup = null;
 
@@ -777,7 +921,7 @@ function enterLocked(badgeId) {
   state = 'locked';
   currentBadgeId = badgeId;
   currentQty = 1;
-  // Next member in line starts on Drinks, not wherever the last one browsed.
+  // Next member in line starts on the first tab, not wherever the last one browsed.
   activeGroup = null;
   pauseScanner();
   showScreen('locked');

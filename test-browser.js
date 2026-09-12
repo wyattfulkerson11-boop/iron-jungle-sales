@@ -113,7 +113,7 @@ check('clicking a product button records a sale', () => {
   enrollAndBuy(w, 'IJG18302', 'Buyer', 1);
   const sales = w.loadState().sales;
   assert.strictEqual(sales.length, 1, 'one click, one sale');
-  assert.strictEqual(sales[0].productName, 'Gatorade');
+  assert.strictEqual(sales[0].productName, w.itemsInGroup(w.nonEmptyGroups()[0].id)[1].name);
 });
 
 /* ---- 3. double-tap still yields one sale, through the DOM ---- */
@@ -627,9 +627,9 @@ check('the purchase screen opens on the first group with a tab per group', () =>
   assert.strictEqual(tabs[0].dataset.groupId, groups[0].id, 'first group is first');
   assert.ok(tabs[0].classList.contains('active'), 'and it opens active');
   assert.strictEqual(tabs[0].getAttribute('aria-pressed'), 'true');
-  // Drinks lead deliberately: the fridge outsells everything else, so the
-  // busiest category must cost one tap.
-  assert.strictEqual(groups[0].id, 'drinks');
+  // Energy leads deliberately: it fills most of the fridge, so the busiest
+  // category must cost one tap.
+  assert.strictEqual(groups[0].id, 'energy');
 });
 
 check('tapping a tab swaps the grid to that group', () => {
