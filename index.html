@@ -65,12 +65,39 @@
     font-weight: 400;
     color: #aaa;
   }
+
+  .idle-title { text-align: center; padding: 12px 0; font-size: 22px; }
+  #reader { width: 100%; max-width: 480px; margin: 0 auto; }
+  .error { color: #ff6b6b; text-align: center; padding: 16px; font-size: 18px; }
+
+  /* Quantity stepper — Task 6 */
+  .qty-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 20px; padding: 12px 0;
+  }
+  .qty-row button {
+    min-width: 88px; min-height: 88px; font-size: 32px;
+    background: #222; border: 2px solid #444; border-radius: 12px; color: #fff;
+  }
+  .qty-row button:disabled { opacity: 0.35; }
+  #qty-value { font-size: 32px; min-width: 60px; text-align: center; }
+
+  /* Cancel — must exist so an abandoned scan cannot wedge the kiosk */
+  .cancel-btn {
+    min-height: 60px; margin-top: auto; background: #2a1a1a;
+    border: 2px solid #553333; border-radius: 12px; color: #ffaaaa; font-size: 18px;
+  }
 </style>
 </head>
 <body>
 
 <!-- Screen: idle — camera is running, waiting for a scan -->
-<div id="idle" class="screen"></div>
+<div id="idle" class="screen">
+  <h2 class="idle-title">Scan your gym barcode</h2>
+  <!-- html5-qrcode mounts the camera feed into this element by id. -->
+  <div id="reader"></div>
+  <p id="scanner-error" class="error" hidden></p>
+</div>
 
 <!-- Screen: locked — badge scanned, items selectable -->
 <div id="locked" class="screen">
@@ -262,10 +289,14 @@ function addSale(sale) {
 let state = 'idle';
 let currentBadgeId = null;
 let scannerInstance = null;
-let lockoutTimer = null; // 3-second secondary guard
+let currentQty = 1;
+// Timestamp before which scans are ignored. A badge left sitting in frame
+// re-decodes continuously, so a plain "pause the camera" is not enough on its own.
+let scanLockoutUntil = 0;
 
 // Lockout duration for secondary guard (ms)
 const LOCKOUT_MS = 3000;
+const MAX_QTY = 10;
 
 /**
  * Enters idle state and starts the camera.
@@ -274,7 +305,10 @@ function enterIdle() {
   state = 'idle';
   currentBadgeId = null;
   showScreen('idle');
-  startScanner();
+  // First entry creates and starts the scanner; every later entry resumes the
+  // paused one. startScanner() early-returns when an instance exists, so
+  // calling only that left the camera paused forever after the first sale.
+  if (scannerInstance) resumeScanner(); else startScanner();
 }
 
 /**
@@ -284,10 +318,10 @@ function enterLocked(badgeId) {
   if (state !== 'idle') return; // ignore if not idle
   state = 'locked';
   currentBadgeId = badgeId;
+  currentQty = 1;
   pauseScanner();
   showScreen('locked');
   updateLockedScreen();
-  startSecondaryLockout(); // secondary guard
 }
 
 /**
@@ -305,12 +339,19 @@ function enterRecording() {
 /**
  * Enters success state: shows confirmation for 2s then returns to idle.
  */
-function enterSuccess() {
+function enterSuccess(sale) {
   if (state !== 'recording') return;
   state = 'success';
+  document.getElementById('success').innerHTML = `
+    <h2>Thanks, ${escapeHtml(sale.memberName)}</h2>
+    <p>${escapeHtml(sale.productName)} &times; ${sale.qty}</p>
+  `;
   showScreen('success');
   setTimeout(() => {
-    enterIdle(); // auto-return after 2s
+    // Clear the name off the screen before the next member walks up.
+    document.getElementById('success').innerHTML = '';
+    armScanLockout();
+    enterIdle();
   }, 2000);
 }
 
@@ -318,28 +359,16 @@ function enterSuccess() {
  * Returns to idle from any state (e.g., cancel).
  */
 function returnToIdle() {
-  state = 'idle';
-  currentBadgeId = null;
-  clearLockoutTimer();
-  resumeScanner();
-  showScreen('idle');
+  armScanLockout();
+  enterIdle();
 }
 
 /**
- * Secondary guard: prevents immediate re-trigger if badge sits in frame.
+ * Secondary guard: ignore scans for LOCKOUT_MS after leaving a purchase, so a
+ * badge still sitting in front of the camera cannot instantly start another one.
  */
-function startSecondaryLockout() {
-  clearLockoutTimer();
-  lockoutTimer = setTimeout(() => {
-    lockoutTimer = null;
-    // After lockout, we stay locked but allow re-scan if badge removed/reinserted
-  }, LOCKOUT_MS);
-}
-function clearLockoutTimer() {
-  if (lockoutTimer) {
-    clearTimeout(lockoutTimer);
-    lockoutTimer = null;
-  }
+function armScanLockout() {
+  scanLockoutUntil = Date.now() + LOCKOUT_MS;
 }
 
 /* ============================================================
@@ -350,86 +379,127 @@ function showScreen(screenId) {
   document.getElementById(screenId).classList.add('active');
 }
 
-function updateLockedScreen() {
-  const member = loadState().members[currentBadgeId];
+/**
+ * Trim, collapse internal whitespace, enforce length. Returns null if invalid.
+ */
+function sanitizeName(raw) {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim().replace(/\s+/g, ' ');
+  if (trimmed.length === 0 || trimmed.length > 40) return null;
+  return trimmed;
+}
+
+/**
+ * Bind (or rebind) the current badge to a name. Returns true on success.
+ * Past sales keep their own memberName snapshot and are untouched.
+ */
+function enrollCurrentBadge(name) {
+  const clean = sanitizeName(name);
+  if (!clean) return false;
+  const s = loadState();
+  s.members[currentBadgeId] = { name: clean, enrolledAt: new Date().toISOString() };
+  return saveState(s);
+}
+
+function updateLockedScreen(forceEnroll) {
+  const locked = document.getElementById('locked');
+  const member = forceEnroll ? null : loadState().members[currentBadgeId];
+
   if (member) {
-    // Known member: show greeting + "Not [Name]?" control
-    document.getElementById('locked').innerHTML = `
+    locked.innerHTML = `
       <h2>Hello, ${escapeHtml(member.name)}</h2>
       <button id="not-me-btn">Not ${escapeHtml(member.name)}?</button>
+      <div class="qty-row">
+        <button id="qty-minus">&minus;</button>
+        <span id="qty-value">1</span>
+        <button id="qty-plus">+</button>
+      </div>
       <div id="catalog-container"></div>
+      <button class="cancel-btn" id="cancel-btn">Cancel</button>
     `;
-    // Wire up the "Not me?" button
+    // Re-prompt for a name instead of just bouncing to idle — the old code
+    // deleted from a throwaway loadState() copy, so the bad name never cleared.
     document.getElementById('not-me-btn').addEventListener('click', () => {
-      // Clear current badge mapping and prompt for name
-      delete loadState().members[currentBadgeId];
-      saveState(loadState()); // persist the removal
-      enterIdle(); // restart scan
+      updateLockedScreen(true);
     });
-    // Render product grid (buttons disabled until we enter recording)
-    renderProductGrid(document.getElementById('catalog-container'), CATALOG, (product) => {
-      enterRecording();
-      recordSale(product);
-    });
+    wireQtyStepper();
+    wireCancel();
+    renderProductGrid(document.getElementById('catalog-container'), CATALOG, onProductTap);
   } else {
-    // Unknown member: show enrollment UI
-    document.getElementById('locked').innerHTML = `
-      <h2>New Member Detected</h2>
-      <input type="text" id="name-input" placeholder="Enter Name" maxlength="40">
-      <button id="enroll-btn">Enroll</button>
-      <div id="catalog-container"></div>
+    locked.innerHTML = `
+      <h2>Welcome — what's your name?</h2>
+      <input type="text" id="name-input" placeholder="Your name" maxlength="40" autocomplete="off">
+      <button id="enroll-btn" disabled>Save</button>
+      <button class="cancel-btn" id="cancel-btn">Cancel</button>
     `;
     const nameInput = document.getElementById('name-input');
     const enrollBtn = document.getElementById('enroll-btn');
-    const catalogContainer = document.getElementById('catalog-container');
-    
-    // Enable/disable enroll button based on input
+
     nameInput.addEventListener('input', () => {
-      enrollBtn.disabled = !nameInput.value.trim();
+      enrollBtn.disabled = sanitizeName(nameInput.value) === null;
     });
-    
-    // Handle enrollment
     enrollBtn.addEventListener('click', () => {
-      const name = nameInput.value.trim();
-      if (!name) return;
-      
-      // Save member
-      const state = loadState();
-      state.members[currentBadgeId] = { name, enrolledAt: new Date().toISOString() };
-      if (!saveState(state)) {
-        alert('Failed to save member');
+      if (!enrollCurrentBadge(nameInput.value)) {
+        showFatal('Could not save. Tell the front desk.');
         return;
       }
-      
-      // Enable product grid and proceed to locked state
-      renderProductGrid(catalogContainer, CATALOG, (product) => {
-        enterRecording();
-        recordSale(product);
-      });
-      nameInput.disabled = true;
-      enrollBtn.disabled = true;
+      // Re-render into the greeting + item grid for the member we just enrolled.
+      updateLockedScreen();
     });
-    
-    // Initial state
-    enrollBtn.disabled = true;
-    
-    // Focus the input
+    wireCancel();
     nameInput.focus();
   }
+}
+
+function wireCancel() {
+  const btn = document.getElementById('cancel-btn');
+  if (btn) btn.addEventListener('click', returnToIdle);
+}
+
+function wireQtyStepper() {
+  const valueEl = document.getElementById('qty-value');
+  const minus = document.getElementById('qty-minus');
+  const plus = document.getElementById('qty-plus');
+  const render = () => {
+    valueEl.textContent = String(currentQty);
+    minus.disabled = currentQty <= 1;
+    plus.disabled = currentQty >= MAX_QTY;
+  };
+  minus.addEventListener('click', () => { if (currentQty > 1) currentQty--; render(); });
+  plus.addEventListener('click', () => { if (currentQty < MAX_QTY) currentQty++; render(); });
+  render();
+}
+
+function onProductTap(product) {
+  // enterRecording() disables every product button synchronously, in this same
+  // handler, so a double-tap on a lagging button cannot produce two sales.
+  if (state !== 'locked') return;
+  enterRecording();
+  recordSale(product);
 }
 
 /**
  * HTML escape helper to prevent XSS.
  */
 function escapeHtml(text) {
+  // Previous version mapped each character to itself, so it escaped nothing.
   const map = {
-    '&': '&',
-    '<': '<',
-    '>': '>',
-    '"': '"',
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
     "'": '&#039;'
   };
-  return text.replace(/[&<>"']/g, m => map[m]);
+  return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+/**
+ * Unrecoverable-for-the-member error. Returns the kiosk to a usable state
+ * rather than leaving it wedged mid-purchase.
+ */
+function showFatal(message) {
+  alert(message);
+  returnToIdle();
 }
 
 /* ============================================================
@@ -453,19 +523,21 @@ function recordSale(product) {
     productName: product.name,   // snapshot
     sku: product.sku,            // snapshot
     price: product.price,        // snapshot (cents)
-    qty: 1,                      // default 1; stepper comes in Task 6
+    qty: currentQty,
     at: new Date().toISOString(),
     batchId: null
   };
   
-  // Attempt to save
+  // A failed write must never reach the success screen.
   if (addSale(sale)) {
-    enterSuccess();
+    enterSuccess(sale);
   } else {
-    // Persistence failed — stay locked so user can retry
-    alert('Failed to save sale. Please try again.');
-    // Note: we stay in 'recording' state but buttons are disabled.
-    // In a real implementation we might revert to 'locked'.
+    // Go back to 'locked' and re-enable the grid so the member can retry.
+    // Previously this left state='recording' with every button disabled,
+    // wedging the kiosk until someone reloaded it.
+    alert('Could not save that sale. Please tap the item again.');
+    state = 'locked';
+    updateLockedScreen();
   }
 }
 
@@ -476,40 +548,52 @@ function startScanner() {
   if (scannerInstance) return;
   try {
     scannerInstance = new Html5Qrcode("reader");
-    // Configure for rear-facing camera if available, otherwise user-facing
-    const config = { fps: 10, qrbox: 250 };
-    // Prefer environment camera; fallback logic handled by library
-    scannerInstance.start(
-      { facingMode: "environment" }, 
-      config,
-      onScanSuccess,
-      onScanError
-    );
   } catch (e) {
-    console.error('Failed to start scanner:', e);
-    showScannerError('Camera unavailable');
+    // Thrown synchronously when the #reader element is missing.
+    console.error('Failed to construct scanner:', e);
+    showScannerError('Scanner failed to load. Tell the front desk.');
+    return;
   }
+  // start() is async — a denied or missing camera rejects the promise and is
+  // NOT catchable by a try/catch around this call.
+  scannerInstance.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    onScanSuccess,
+    onScanError
+  ).catch(e => {
+    console.error('Failed to start camera:', e);
+    showScannerError('Camera unavailable. Check camera permission in Settings, then reload.');
+  });
 }
 
 function pauseScanner() {
-  if (scannerInstance) {
-    scannerInstance.pause();
+  try {
+    if (scannerInstance) scannerInstance.pause(true);
+  } catch (e) {
+    console.warn('pause failed:', e);
   }
 }
 
 function resumeScanner() {
-  if (scannerInstance) {
-    scannerInstance.resume();
+  try {
+    if (scannerInstance) scannerInstance.resume();
+  } catch (e) {
+    // Resuming a scanner that is already scanning throws; harmless.
+    console.warn('resume failed:', e);
   }
 }
 
 function onScanSuccess(decodedText) {
   // Primary guard: only accept scans from idle state
   if (state !== 'idle') return;
-  
+  // Secondary guard: a badge left sitting in frame must not immediately
+  // re-trigger when the camera resumes after the previous sale.
+  if (Date.now() < scanLockoutUntil) return;
+
   // Pause camera immediately (primary fix)
   pauseScanner();
-  
+
   // Store badge ID and enter locked state
   currentBadgeId = decodedText.trim();
   enterLocked(currentBadgeId);
@@ -521,8 +605,11 @@ function onScanError(error) {
 }
 
 function showScannerError(message) {
-  const idleScreen = document.getElementById('idle');
-  idleScreen.innerHTML = `<p class="error">${escapeHtml(message)}</p>`;
+  // Write into a dedicated node — replacing the whole idle screen would
+  // destroy #reader, which the scanner needs to mount into.
+  const el = document.getElementById('scanner-error');
+  el.textContent = message;
+  el.hidden = false;
 }
 
 /* ============================================================
@@ -616,8 +703,8 @@ function demoScanner() {
   // Reset state
   state = 'idle';
   currentBadgeId = null;
-  clearLockoutTimer();
-  
+  scanLockoutUntil = 0;
+
   // Mock scanner functions
   let paused = false;
   const mockPause = () => { paused = true; };
@@ -626,9 +713,14 @@ function demoScanner() {
   // Temporarily replace scanner functions
   const originalPause = pauseScanner;
   const originalResume = resumeScanner;
+  const originalInstance = scannerInstance;
   pauseScanner = mockPause;
   resumeScanner = mockResume;
-  
+  // Stand in for a started camera. enterIdle() resumes an existing instance and
+  // only constructs one when there is none, so without this the cancel test
+  // takes the construct path and never calls resume.
+  scannerInstance = scannerInstance || {};
+
   try {
     // Test: idle -> scan -> locked
     onScanSuccess('TEST_BADGE');
@@ -650,8 +742,9 @@ function demoScanner() {
     // Restore original functions
     pauseScanner = originalPause;
     resumeScanner = originalResume;
+    scannerInstance = originalInstance;
   }
-  
+
   return results;
 }
 
