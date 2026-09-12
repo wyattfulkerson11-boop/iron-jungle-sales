@@ -81,6 +81,19 @@
     text-transform: uppercase; color: var(--ink-soft);
     text-align: center;
   }
+
+  /* The gym's own mark, in the slot the text eyebrow used to hold. Served as
+     a file rather than inlined base64: it is the same same-origin pattern as
+     vendor/html5-qrcode.min.js, it caches on its own, and 60KB of base64 in
+     the middle of index.html would make hand-editing CATALOG and ADMIN_PIN
+     miserable. The PNG has a real alpha channel, so it sits straight on the
+     chalk background with no card behind it. */
+  .brand {
+    display: block; align-self: center; height: auto;
+    width: min(240px, 46vw); margin-bottom: 2px;
+  }
+  /* Sized in the report so the logo heads the sheet without dominating it. */
+  .brand-report { display: block; width: 200px; height: auto; margin-bottom: 6px; }
   .hint { font-size: 17px; color: var(--ink-soft); text-align: center; }
 
   /* ---------- idle / scan ---------- */
@@ -326,6 +339,7 @@
     body { background: #fff; color: #000; overflow: visible; }
     .screen, #reader, #admin, #idle, #locked, #success, #batch-view { display: none !important; }
     #print-container { display: block !important; padding: 0; }
+    #print-container .brand-report { width: 1.8in; margin-bottom: 6pt; }
     #print-container h1 { font-size: 20pt; margin-bottom: 2pt; }
     #print-container .sub { font-size: 10pt; color: #444; margin-bottom: 12pt; }
     table { width: 100%; border-collapse: collapse; font-size: 11pt; }
@@ -340,7 +354,8 @@
 <body>
 
 <div id="idle" class="screen">
-  <p class="eyebrow">Iron Jungle</p>
+  <img class="brand" src="logo.png" width="520" height="183"
+       alt="Iron Jungle Family Fitness">
   <h2 class="idle-title" id="idle-title">Scan your gym barcode</h2>
   <div class="scan-frame">
     <div id="reader"></div>
@@ -961,7 +976,9 @@ function buildBatchReport(batchId) {
   // switching accounts. A rule above each member's first row makes the
   // groups scannable when you are halfway down the page.
   const html = `
-    <h1>Iron Jungle &mdash; counter sales</h1>
+    <img class="brand-report" src="logo.png" width="520" height="183"
+         alt="Iron Jungle Family Fitness">
+    <h1>Counter sales</h1>
     <p class="sub">
       ${escapeHtml(label)} &middot; ${escapeHtml(shortId)} &middot;
       ${lineCount} ${lineCount === 1 ? 'line' : 'lines'} &middot;

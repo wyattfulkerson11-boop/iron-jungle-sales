@@ -472,6 +472,27 @@ check('Share is hidden when the platform cannot share, and a cancel is silent', 
   }));
 });
 
+/* ---- 18. the gym's logo is present and accessible ---- */
+check("the gym's logo is on the scan screen and the batch report", () => {
+  const w = boot().window;
+  const brand = w.document.querySelector('#idle .brand');
+  assert.ok(brand, 'the scan screen carries the logo');
+  assert.strictEqual(brand.getAttribute('src'), 'logo.png',
+    'a local file, not a link to the gym website — the kiosk is offline-first');
+  assert.ok(/Iron Jungle/i.test(brand.getAttribute('alt') || ''),
+    'logo needs real alt text, not an empty attribute');
+  // width/height attributes are what stop the scan screen jumping on load.
+  assert.ok(brand.getAttribute('width') && brand.getAttribute('height'),
+    'intrinsic size must be declared to avoid layout shift');
+
+  enrollAndBuy(w, 'IJG18330', 'Logo Tester', 0);
+  const b = w.createBatch();
+  const r = w.buildBatchReport(b.id);
+  assert.ok(r.html.includes('logo.png'), 'printed and viewed reports carry the logo');
+  // The shared text copy has no images, so it must still say the gym's name.
+  assert.ok(r.text.includes('Iron Jungle'), 'text report still names the gym');
+});
+
 Promise.all(pending).then(() => {
   let failed = 0;
   for (const [status, label] of results) {
