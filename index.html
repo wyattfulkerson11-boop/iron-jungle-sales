@@ -87,28 +87,32 @@
     min-height: 60px; margin-top: auto; background: #2a1a1a;
     border: 2px solid #553333; border-radius: 12px; color: #ffaaaa; font-size: 18px;
   }
+
+  /* Print Stylesheet — Task 7 */
+  @media print {
+    body { background: #fff; color: #000; overflow: visible; }
+    .screen, #reader, #admin, #idle, #locked, #success { display: none; }
+    #print-container { display: block; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  }
 </style>
 </head>
 <body>
 
-<!-- Screen: idle — camera is running, waiting for a scan -->
 <div id="idle" class="screen">
   <h2 class="idle-title">Scan your gym barcode</h2>
-  <!-- html5-qrcode mounts the camera feed into this element by id. -->
   <div id="reader"></div>
   <p id="scanner-error" class="error" hidden></p>
 </div>
 
-<!-- Screen: locked — badge scanned, items selectable -->
 <div id="locked" class="screen">
   <div id="catalog-container"></div>
 </div>
 
-<!-- Screen: success — just confirmed, auto-clears -->
 <div id="success" class="screen"></div>
-
-<!-- Screen: admin — PIN-gated management view -->
 <div id="admin" class="screen"></div>
+<div id="print-container" style="display: none;"></div>
 
 <script>
 'use strict';
@@ -503,11 +507,6 @@ function showFatal(message) {
 }
 
 /* ============================================================
- * Task 5 — Enrollment (stub, to be expanded in Task 5)
- * ============================================================ */
-// Enrollment logic lives in updateLockedScreen() above
-
-/* ============================================================
  * Task 6 — Sale capture
  * ============================================================ */
 function recordSale(product) {
@@ -539,6 +538,76 @@ function recordSale(product) {
     state = 'locked';
     updateLockedScreen();
   }
+}
+
+/* ============================================================
+ * Task 7 — Export batches
+ * ============================================================ */
+function createBatch() {
+  const state = loadState();
+  const pendingSales = state.sales.filter(s => s.batchId === null);
+  if (pendingSales.length === 0) return null;
+
+  const batchId = crypto.randomUUID();
+  pendingSales.forEach(s => { s.batchId = batchId; });
+  
+  const batch = {
+    id: batchId,
+    createdAt: new Date().toISOString(),
+    saleIds: pendingSales.map(s => s.id),
+    status: 'pending',
+    processedAt: null
+  };
+  state.batches.push(batch);
+  if (saveState(state)) return batch;
+  return null;
+}
+
+function printBatch(batchId) {
+  const state = loadState();
+  const batch = state.batches.find(b => b.id === batchId);
+  if (!batch) return;
+
+  const batchSales = state.sales.filter(s => s.batchId === batchId);
+  const grouped = batchSales.reduce((acc, s) => {
+    if (!acc[s.memberName]) acc[s.memberName] = [];
+    acc[s.memberName].push(s);
+    return acc;
+  }, {});
+
+  const members = Object.keys(grouped).sort();
+  
+  const container = document.getElementById('print-container');
+  container.innerHTML = `
+    <h2>Batch: ${batchId}</h2>
+    <p>Created: ${batch.createdAt}</p>
+    <table>
+      <thead>
+        <tr><th>Member</th><th>Item</th><th>Qty</th><th>Price</th><th>Time</th></tr>
+      </thead>
+      <tbody>
+        ${members.map(m => grouped[m].map((s, i) => `
+          <tr>
+            <td>${i === 0 ? escapeHtml(m) : ''}</td>
+            <td>${escapeHtml(s.productName)}</td>
+            <td>${s.qty}</td>
+            <td>${formatPrice(s.price * s.qty)}</td>
+            <td>${s.at}</td>
+          </tr>
+        `).join('')).join('')}
+      </tbody>
+    </table>
+  `;
+  window.print();
+}
+
+function confirmBatch(batchId) {
+  const state = loadState();
+  const batch = state.batches.find(b => b.id === batchId);
+  if (!batch) return false;
+  batch.status = 'processed';
+  batch.processedAt = new Date().toISOString();
+  return saveState(state);
 }
 
 /* ============================================================
@@ -756,4 +825,4 @@ if (typeof window !== 'undefined' && window.localStorage) {
 }
 </script>
 </body>
-</html>
+</html>', path:
