@@ -212,7 +212,11 @@ function renderProductGrid(container, catalog, onItemClick) {
     btn.type = 'button';
     btn.className = 'product-btn';
     btn.dataset.productId = item.id;
-    btn.disabled = true; // disabled by default until state machine locks
+    // Enabled only while a member is locked in. The grid is rendered from
+    // updateLockedScreen(), so this is normally true — but it must be derived
+    // from state, never hardcoded: hardcoding `true` here left the buttons
+    // permanently dead, because nothing ever set them back to false.
+    btn.disabled = state !== 'locked';
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'name';
@@ -877,6 +881,17 @@ function demoStorage() {
     if (!cond) console.error('FAIL:', label);
   }
 
+  // This function is destructive — it clears storage and writes garbage on
+  // purpose. Snapshot everything first and restore it on the way out, so
+  // running it against a kiosk that holds real sales cannot lose them.
+  const snapshot = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    snapshot[k] = localStorage.getItem(k);
+  }
+  const wasCorrupted = corrupted;
+  try {
+
   localStorage.clear();
   const s1 = loadState();
   assert(s1.schema === 1 && Array.isArray(s1.sales) && Array.isArray(s1.batches), 'default shape has schema=1');
@@ -899,6 +914,13 @@ function demoStorage() {
   const s4 = loadState();
   assert(corrupted === true, 'corrupted flag set after garbage write');
   assert(s4.sales.length === 0, 'loadState quarantines');
+
+  } finally {
+    // Restore the real data and the real corruption flag.
+    localStorage.clear();
+    for (const k of Object.keys(snapshot)) localStorage.setItem(k, snapshot[k]);
+    corrupted = wasCorrupted;
+  }
 
   return results;
 }
@@ -1003,11 +1025,27 @@ function demoScanner() {
   return results;
 }
 
-// Run demos if in browser
-if (typeof window !== 'undefined' && window.localStorage && !window.NO_DEMO) {
-  demoStorage();
-  demoCatalog();
-  demoScanner();
+/**
+ * Self-checks are DEVELOPER tools and must never run on their own.
+ *
+ * They used to run on every page load. demoStorage() clears localStorage and
+ * writes garbage to the real key, so every reload of the kiosk quarantined the
+ * live data as corrupt and started empty — a full day of uncollected sales
+ * destroyed by any reload, iOS memory-pressure relaunch, or Guided Access
+ * restart. Silent, and with a false "storage was corrupt" banner on top.
+ *
+ * Opt in explicitly with ?selftest=1 when you want them.
+ */
+function runSelfChecks() {
+  return {
+    storage: demoStorage(),
+    catalog: demoCatalog(),
+    scanner: demoScanner()
+  };
+}
+if (typeof window !== 'undefined' && window.location
+    && /[?&]selftest=1\b/.test(window.location.search)) {
+  console.log('Self-checks:', runSelfChecks());
 }
 </script>
 </body>
