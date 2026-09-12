@@ -1438,6 +1438,73 @@ function resumeScanner() {
   }
 }
 
+/**
+ * Bring a suspended camera back.
+ *
+ * iOS suspends a <video> as soon as the page is obscured, and html5-qrcode
+ * never notices: the preview freezes and the kiosk silently stops scanning.
+ * Found via an overscroll pull with Guided Access off, but the gesture is only
+ * one trigger — a notification shade, the app backgrounding, exiting and
+ * re-entering Guided Access, or the iPad sleeping all do the same thing, and
+ * Guided Access blocks none of those. A frozen scanner is the worst failure
+ * this kiosk has: a member waves their card, nothing happens, they walk off,
+ * and the sale goes unrecorded — precisely the loss it exists to prevent, and
+ * invisible in the data afterwards because nothing was written.
+ */
+function reviveScanner() {
+  // Mid-purchase the camera is paused on purpose; leave it alone.
+  if (state !== 'idle') return;
+  if (!scannerInstance) { startScanner(); return; }
+
+  const video = document.querySelector('#reader video');
+  const track = video && video.srcObject && video.srcObject.getVideoTracks
+    ? video.srcObject.getVideoTracks()[0]
+    : null;
+
+  // A track iOS actually ended cannot be replayed — rebuild the scanner.
+  if (track && track.readyState === 'ended') { restartScanner(); return; }
+
+  // Otherwise it is only paused, which play() undoes.
+  if (video && video.paused) {
+    Promise.resolve(video.play()).catch((e) => {
+      console.warn('video resume failed, rebuilding scanner:', e);
+      restartScanner();
+    });
+  }
+  // And html5-qrcode may still believe it is paused from a previous sale.
+  resumeScanner();
+}
+
+/** Tear the scanner down and stand a fresh one up. */
+function restartScanner() {
+  const old = scannerInstance;
+  scannerInstance = null;
+  const again = () => { if (state === 'idle') startScanner(); };
+  if (!old) { again(); return; }
+  // stop() can be missing or throw synchronously. scannerInstance is already
+  // null by here, so letting that escape would leave the kiosk with no scanner
+  // at all and nothing to rebuild it — a dead camera for the rest of the shift.
+  try {
+    Promise.resolve(old.stop()).catch((e) => console.warn('stop failed:', e)).then(again);
+  } catch (e) {
+    console.warn('stop threw:', e);
+    again();
+  }
+}
+
+function wireScannerRecovery() {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) reviveScanner();
+  });
+  // visibilitychange does not always fire for a partially obscured page.
+  window.addEventListener('focus', reviveScanner);
+  // Only a back-forward-cache restore. Plain `pageshow` fires on every normal
+  // load, where enterIdle has just started the scanner — reviving there cost a
+  // redundant camera restart on every launch.
+  window.addEventListener('pageshow', (e) => { if (e && e.persisted) reviveScanner(); });
+}
+wireScannerRecovery();
+
 function onScanSuccess(decodedText) {
   // Primary guard: only accept scans from idle state
   if (state !== 'idle') return;

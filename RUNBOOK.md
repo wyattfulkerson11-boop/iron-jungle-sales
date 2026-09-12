@@ -157,6 +157,7 @@ Processed batches stay visible for 30 days, so you can reprint one if needed.
 | Screen frozen | Triple-click side button, exit Guided Access, reopen from home screen |
 | Scanner won't read a card | Hold it **level and centered, filling the frame's width** — the reader looks at a wide strip across the middle, not the corners. Then try the physical card instead of the phone; check the lens isn't smudged |
 | Camera unavailable + a message in brackets | That bracketed text is the real reason. Send it to me — it is not always a permission problem |
+| Scan preview frozen / nothing reads | It should recover by itself when the app comes back to the foreground. If it does not, close the app from the home screen and reopen |
 | "Could not save that sale" | Storage is full — pull a batch, confirm it, then clear old data |
 | Someone's name is wrong | Scan their badge → **Not [name]?** → retype |
 

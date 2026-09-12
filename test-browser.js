@@ -493,6 +493,87 @@ check("the gym's logo is on the scan screen and the batch report", () => {
   assert.ok(r.text.includes('Iron Jungle'), 'text report still names the gym');
 });
 
+/* ---- 19. a suspended camera is revived, not left frozen ---- */
+// jsdom reports visibilityState 'prerender' / hidden:true, unlike a real
+// browser, so tests that drive the visibilitychange path say so explicitly.
+function visible(w) {
+  Object.defineProperty(w.document, 'hidden', { value: false, configurable: true });
+}
+function fakeVideo(w, readyState) {
+  let played = 0;
+  const video = w.document.createElement('video');
+  Object.defineProperty(video, 'paused', { value: true, configurable: true });
+  video.play = () => { played++; return Promise.resolve(); };
+  video.srcObject = { getVideoTracks: () => [{ readyState: readyState || 'live' }] };
+  w.document.getElementById('reader').appendChild(video);
+  return () => played;
+}
+
+check('a frozen preview is played again when the page comes back', () => {
+  const w = boot().window;
+  visible(w);
+  const played = fakeVideo(w);
+  w.document.dispatchEvent(new w.Event('visibilitychange'));
+  assert.strictEqual(played(), 1, 'a frozen preview must be played again');
+});
+
+check('a window focus also revives the camera', () => {
+  // visibilitychange does not always fire for a partially obscured page, which
+  // is how the overscroll pull froze it in the first place.
+  const w = boot().window;
+  const played = fakeVideo(w);
+  w.dispatchEvent(new w.Event('focus'));
+  assert.strictEqual(played(), 1, 'focus must revive too');
+});
+
+check('an ended camera track rebuilds the scanner rather than replaying a corpse', () => {
+  const w = boot().window;
+  visible(w);
+  let starts = 0;
+  w.Html5Qrcode = function () {
+    starts++;
+    return { start: () => Promise.resolve(), pause() {}, resume() {}, stop: () => Promise.resolve() };
+  };
+  const played = fakeVideo(w, 'ended');
+  w.document.dispatchEvent(new w.Event('visibilitychange'));
+  return new Promise(r => setImmediate(() => {
+    try {
+      assert.strictEqual(played(), 0, 'an ended track must not be played');
+      assert.strictEqual(starts, 1, 'a fresh scanner is stood up instead');
+      r();
+    } catch (e) { r(e); }
+  }));
+});
+
+check('a scanner whose stop() is missing or throws still gets rebuilt', () => {
+  // scannerInstance is nulled before stop() is called, so an exception
+  // escaping there would leave the kiosk with no scanner and nothing to
+  // rebuild it — a dead camera for the rest of the shift.
+  const w = boot().window;
+  let starts = 0;
+  w.Html5Qrcode = function () {
+    starts++;
+    return { start: () => Promise.resolve(), pause() {}, resume() {} }; // no stop()
+  };
+  w.restartScanner(); // the boot instance also has no stop()
+  return new Promise(r => setImmediate(() => {
+    try { assert.ok(starts >= 1, 'must recover despite stop() throwing'); r(); }
+    catch (e) { r(e); }
+  }));
+});
+
+check('reviving mid-purchase does not steal the camera back', () => {
+  const w = boot().window;
+  visible(w);
+  w.onScanSuccess('IJG18340');
+  assert.ok(w.document.getElementById('locked').classList.contains('active'),
+    'should be on the purchase screen');
+  const played = fakeVideo(w);
+  w.document.dispatchEvent(new w.Event('visibilitychange'));
+  assert.strictEqual(played(), 0,
+    'the camera is paused on purpose mid-purchase and must stay paused');
+});
+
 Promise.all(pending).then(() => {
   let failed = 0;
   for (const [status, label] of results) {
