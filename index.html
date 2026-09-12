@@ -19,6 +19,18 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
+    /* Kiosk hardening (Task 9) — the page is an always-on appliance. */
+    touch-action: manipulation;
+    overscroll-behavior-y: none;
+    -webkit-touch-callout: none;
+  }
+  /* The enrollment name field is a real text input. The kiosk-wide
+     user-select:none above is right for the rest of the screen, but a member
+     who can't place a caret to fix a typo will abandon — re-enable selection
+     and the WebKit prefix here. */
+  input {
+    user-select: text;
+    -webkit-user-select: text;
   }
   .screen { display: none; height: 100vh; padding: 20px; }
   .screen.active { display: flex; flex-direction: column; }
