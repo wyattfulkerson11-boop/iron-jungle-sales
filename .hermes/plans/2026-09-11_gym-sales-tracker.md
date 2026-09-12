@@ -319,3 +319,67 @@ All nine tasks committed, every `demo()` self-check passing, and the page loadin
 and completing a full scan → tap → export → confirm cycle with the network
 disabled. Hand off for real-device deployment at that point — do not attempt
 hosting or iPad setup yourself.
+
+---
+
+## Task 8+ — PIN gate, plus the three Task 7 gaps
+
+**Supersedes the original Task 8.** Task 7 shipped a correct batch lifecycle that
+no user can reach — there is no entry point to the admin screen. Task 7 is not
+finished until this task lands, so the two are done together.
+
+**`test-task8.js` at project root is the acceptance criteria.** It is written and
+currently fails 13 of 14. Make it pass. **Do not modify `test-task8.js`** — if a
+test looks wrong, say so in your report rather than editing it. The function
+names below are the ones it calls, so use exactly these.
+
+### Required API
+
+| Function | Behavior |
+|---|---|
+| `ADMIN_PIN` | String const. Keep `'0000'` and the placeholder comment. |
+| `tryAdminUnlock(pin)` | `true` on match. On miss, count it. After 3 misses start a 30s lockout during which **even the correct PIN returns `false`**. |
+| `adminLockoutRemainingMs()` | Milliseconds left, `0` when not locked out. |
+| `resetAdminLockout()` | Clears attempts and lockout. Called on a successful unlock. |
+| `listAdminBatches()` | Pending batches first, then processed ones whose `processedAt` is within 30 days. Older processed batches are excluded. |
+| `clearAllData(confirmText)` | Returns `{ok:false, reason:'pending'}` if any batch is pending; `{ok:false, reason:'confirm'}` unless `confirmText` is exactly `CLEAR`; otherwise wipes sales, batches and members and returns `{ok:true}`. |
+| `pendingSaleCount()` | Count of sales with `batchId === null`. |
+
+### Fixes to existing Task 7 code
+
+1. **`confirmBatch(id)` must return `false`** if the batch is already `processed`.
+   It currently overwrites `processedAt` on a second call.
+2. **`renderAdmin` must use `listAdminBatches()`** so processed batches stay
+   visible and reprintable. It currently filters to `pending` only, which makes a
+   confirmed batch permanently unreprintable.
+3. **`printBatch` output must include** the line count and the batch total in
+   dollars, and render times as readable local time (e.g. `2:14 PM`) rather than
+   raw ISO strings. Use `toLocaleTimeString`. The worker reads this by hand.
+
+### Wiring — this is the part that was missing
+
+- Long-press (~800ms) the idle screen's `<h2 class="idle-title">` → prompt for the
+  PIN → on success `showScreen('admin')`. This is the only route to admin.
+- The admin screen gets a "Clear all data" control that shows
+  `pendingSaleCount()` in its warning text and requires typing `CLEAR`.
+- Admin must be unreachable from `idle` without a successful `tryAdminUnlock`.
+  Hiding it is not gating it.
+
+### Constraints
+
+1. **`index.html` is ~900 lines and works. ADD to it.** Do not rewrite or
+   regenerate the file. If you are emitting a whole new `index.html`, stop.
+2. Do not modify: `loadState`, `saveState`, `addSale`, `escapeHtml`,
+   `sanitizeName`, `enrollCurrentBadge`, `onScanSuccess`, `enterIdle`,
+   `enterLocked`, `enterRecording`, `enterSuccess`, `recordSale`,
+   `renderProductGrid`, `validateCatalog`, `createBatch`.
+3. Consolidate the stray `<script>` block in the body into the main one.
+4. **Stop after this task.** Do not start Task 9.
+
+### Done means
+
+`node test-task8.js` → 14/14, and `node test-fixes.js` (12) and
+`node test-storage.js` (17) still pass. Run all three and paste the real output.
+If a test fails, say so — do not report success you did not earn.
+
+**Commit:** `feat: PIN-gated admin and Task 7 report gaps`
