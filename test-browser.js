@@ -27,8 +27,14 @@ function boot(url = 'http://localhost/index.html', storage = null) {
       w.HTMLCanvasElement.prototype.getContext = () => null;
       // The scanner needs a camera; stub it so the page boots headless.
       w.Html5Qrcode = function () {
-        return { start: () => Promise.resolve(), pause() {}, resume() {} };
+        return {
+          start: (cam, cfg) => { w.__scanCfg = { cam, cfg }; return Promise.resolve(); },
+          pause() {}, resume() {}
+        };
       };
+      // Real enum values from vendor/html5-qrcode.min.js.
+      w.Html5QrcodeSupportedFormats = { CODABAR: 1, CODE_39: 2, CODE_128: 4,
+        ITF: 8, EAN_13: 7, UPC_A: 14, QR_CODE: 11 };
       w.alert = () => {};
       w.print = () => {};
       if (storage) for (const k of Object.keys(storage)) w.localStorage.setItem(k, storage[k]);
@@ -176,6 +182,21 @@ check('admin screen is not reachable without a correct PIN', () => {
   // long-press timer is 800ms; simulate by calling the gate directly too
   assert.strictEqual(w.tryAdminUnlock('9999'), false);
   assert.ok(!w.document.getElementById('admin').classList.contains('active'));
+});
+
+/* ---- 9. the scan box is a wide strip, not a square ---- */
+check('scanner is configured for wide linear barcodes, not just square QR', () => {
+  const w = boot().window;
+  const { cam, cfg } = w.__scanCfg;
+  // A square qrbox crops the start/stop bars off a Code 39/128 gym keytag and
+  // nothing decodes. This is the bug the iPad hit on 2026-09-12.
+  const box = cfg.qrbox(640, 480);
+  assert.ok(box.width > box.height, `scan box must be wider than tall, got ${box.width}x${box.height}`);
+  const fmts = cfg.formatsToSupport;
+  const F = w.Html5QrcodeSupportedFormats;
+  assert.ok(fmts.includes(F.CODE_39), 'CODE_39 must be supported');
+  assert.ok(fmts.includes(F.CODE_128), 'CODE_128 must be supported');
+  assert.ok(cam.width.ideal >= 1280, 'request a high-res stream so thin bars resolve');
 });
 
 let failed = 0;

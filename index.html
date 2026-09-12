@@ -1078,8 +1078,33 @@ function startScanner() {
   // start() is async — a denied or missing camera rejects the promise and is
   // NOT catchable by a try/catch around this call.
   scannerInstance.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: 250 },
+    // Ask for 1080p. More pixels per bar means the tag decodes from a foot
+    // away instead of two inches — the rear iPad camera cannot focus that close.
+    { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+    {
+      fps: 10,
+      // CALIBRATION KNOB. Gym keytags are Code 39/Code 128: a wide, short
+      // strip. A square box crops the start/stop bars out of frame and nothing
+      // decodes, ever. Widen/shorten these fractions if scanning is finicky
+      // under the gym's real lighting.
+      qrbox: function (vw, vh) {
+        return {
+          width: Math.floor(vw * 0.9),
+          height: Math.floor(Math.min(vh * 0.5, 260))
+        };
+      },
+      // Only the formats gym cards actually use. Every extra format is another
+      // decoder pass per frame, which costs scan speed on the iPad.
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODABAR,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ]
+    },
     onScanSuccess,
     onScanError
   ).catch(e => {

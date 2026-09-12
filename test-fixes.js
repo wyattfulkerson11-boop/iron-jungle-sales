@@ -57,6 +57,9 @@ const ctx = {
   Html5Qrcode: function () {
     return { start: () => Promise.resolve(), pause() {}, resume() {} };
   },
+  // Real enum values from vendor/html5-qrcode.min.js.
+  Html5QrcodeSupportedFormats: { CODABAR: 1, CODE_39: 2, CODE_128: 4,
+    ITF: 8, EAN_13: 7, UPC_A: 14, QR_CODE: 11 },
 };
 ctx.window = ctx;
 vm.createContext(ctx);
