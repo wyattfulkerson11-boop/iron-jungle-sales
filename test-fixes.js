@@ -20,7 +20,7 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/g).pop()
 function makeEl(id) {
   const el = {
     id, _html: '', textContent: '', hidden: false, disabled: false,
-    style: {}, classList: { add() {}, remove() {} },
+    style: { _v:{}, setProperty(k,v){ this._v[k]=v; }, getPropertyValue(k){ return this._v[k]||''; } }, classList: { add() {}, remove() {} },
     _handlers: {},
     addEventListener(ev, fn) { (this._handlers[ev] ||= []).push(fn); },
     click() { (this._handlers.click || []).forEach(f => f()); },

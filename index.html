@@ -10,111 +10,305 @@
 <title>Iron Jungle — Counter Sales</title>
 <script src="vendor/html5-qrcode.min.js"></script>
 <style>
+  /* ============================================================
+     Iron Jungle — counter kiosk
+     Direction: "Chalk & Plates". Light ground because the real scene is a
+     gym counter under bright fluorescents, where a dark screen mirrors the
+     room and every fingerprint. Identity comes from the subject's own
+     world: chalk, charcoal rubber, and the colour-coding of competition
+     plates — colour as identification, not decoration.
+     System fonts only: the offline guarantee forbids a font CDN.
+     ============================================================ */
+  :root {
+    --chalk:      #EEF0F3;
+    --card:       #FFFFFF;
+    --ink:        #15171C;
+    --ink-soft:   #616A79;
+    --rule:       #D8DCE3;
+
+    /* Plate colours. Assigned per item by id, so an item keeps its colour
+       for life and members recognise it without reading. */
+    --plate-red:    #C62828;
+    --plate-blue:   #1457B8;
+    --plate-amber:  #B35A00;
+    --plate-green:  #1F7A3D;
+    --plate-violet: #6A3FB5;
+    --plate-teal:   #0F6E6E;
+
+    --danger:     #B3261E;
+    --radius:     18px;
+    --tap:        88px;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #111;
-    color: #eee;
-    height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    background: var(--chalk);
+    color: var(--ink);
     overflow: hidden;
+    -webkit-font-smoothing: antialiased;
     user-select: none;
     -webkit-user-select: none;
-    /* Kiosk hardening (Task 9) — the page is an always-on appliance. */
+    /* Kiosk hardening — the page is an always-on appliance. */
     touch-action: manipulation;
     overscroll-behavior-y: none;
     -webkit-touch-callout: none;
   }
+
   /* The enrollment name field is a real text input. The kiosk-wide
      user-select:none above is right for the rest of the screen, but a member
-     who can't place a caret to fix a typo will abandon — re-enable selection
-     and the WebKit prefix here. */
+     who can't place a caret to fix a typo will abandon. */
   input {
     user-select: text;
     -webkit-user-select: text;
   }
-  .screen { display: none; height: 100vh; padding: 20px; }
+
+  .screen { display: none; height: 100%; padding: 28px 32px 24px; }
   .screen.active { display: flex; flex-direction: column; }
 
-  /* Product Catalog Grid — Task 3 */
-  .product-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 16px;
-    padding: 16px 0;
-    width: 100%;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  .product-btn {
-    min-height: 88px;
-    min-width: 88px;
-    padding: 16px 12px;
-    background: #222;
-    border: 2px solid #444;
-    border-radius: 12px;
-    color: #fff;
-    font-size: 18px;
-    font-weight: 600;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
+  /* ---------- shared type ---------- */
+  .eyebrow {
+    font-size: 13px; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--ink-soft);
     text-align: center;
   }
-  .product-btn:active {
-    background: #333;
-    border-color: #ff5500;
-  }
-  .product-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    border-color: #333;
-  }
-  .product-btn .price {
-    font-size: 16px;
-    font-weight: 400;
-    color: #aaa;
+  .hint { font-size: 17px; color: var(--ink-soft); text-align: center; }
+
+  /* ---------- idle / scan ---------- */
+  #idle { align-items: center; justify-content: flex-start; gap: 14px; }
+
+  .idle-title {
+    font-size: clamp(30px, 4.6vw, 46px);
+    font-weight: 800; letter-spacing: -.02em; line-height: 1.05;
+    text-align: center;
   }
 
-  .idle-title { text-align: center; padding: 12px 0; font-size: 22px; }
-  #reader { width: 100%; max-width: 480px; margin: 0 auto; }
-  .error { color: #ff6b6b; text-align: center; padding: 16px; font-size: 18px; }
+  /* Corner brackets tell a hurried person where to aim the barcode. */
+  .scan-frame {
+    position: relative;
+    width: min(460px, 74vw);
+    aspect-ratio: 1 / 1;
+    margin-top: 4px;
+    border-radius: var(--radius);
+    background: #0E1013;
+    overflow: hidden;
+  }
+  #reader { width: 100%; height: 100%; }
+  #reader video { width: 100% !important; height: 100% !important; object-fit: cover; }
+  .scan-frame span {
+    position: absolute; width: 34px; height: 34px; pointer-events: none;
+    border: 4px solid var(--card); border-radius: 4px;
+  }
+  .scan-frame span:nth-of-type(1) { top: 14px; left: 14px;  border-right: 0; border-bottom: 0; }
+  .scan-frame span:nth-of-type(2) { top: 14px; right: 14px; border-left: 0;  border-bottom: 0; }
+  .scan-frame span:nth-of-type(3) { bottom: 14px; left: 14px;  border-right: 0; border-top: 0; }
+  .scan-frame span:nth-of-type(4) { bottom: 14px; right: 14px; border-left: 0;  border-top: 0; }
 
-  /* Quantity stepper — Task 6 */
+  .error {
+    color: var(--danger); font-size: 18px; font-weight: 600;
+    text-align: center; max-width: 34ch; line-height: 1.35;
+  }
+
+  /* ---------- locked: greeting ---------- */
+  .member-bar {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; padding-bottom: 14px; border-bottom: 2px solid var(--rule);
+  }
+  .member-name {
+    font-size: clamp(26px, 3.6vw, 38px); font-weight: 800; letter-spacing: -.02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .linkish {
+    background: none; border: 0; color: var(--ink-soft);
+    font-size: 17px; font-weight: 600; text-decoration: underline;
+    text-underline-offset: 4px; padding: 10px 4px; flex: none;
+  }
+
+  /* ---------- quantity ---------- */
   .qty-row {
     display: flex; align-items: center; justify-content: center;
-    gap: 20px; padding: 12px 0;
+    gap: 22px; padding: 16px 0 6px;
   }
   .qty-row button {
-    min-width: 88px; min-height: 88px; font-size: 32px;
-    background: #222; border: 2px solid #444; border-radius: 12px; color: #fff;
+    width: var(--tap); height: 64px;
+    font-size: 30px; font-weight: 700; color: var(--ink);
+    background: var(--card); border: 2px solid var(--rule);
+    border-radius: 14px;
   }
-  .qty-row button:disabled { opacity: 0.35; }
-  #qty-value { font-size: 32px; min-width: 60px; text-align: center; }
+  .qty-row button:active { background: var(--chalk); }
+  .qty-row button:disabled { opacity: .3; }
+  .qty-label {
+    font-size: 13px; font-weight: 700; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-soft);
+  }
+  #qty-value {
+    font-size: 34px; font-weight: 800; min-width: 56px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
 
-  /* Cancel — must exist so an abandoned scan cannot wedge the kiosk */
+  /* ---------- product grid ---------- */
+  #catalog-container { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 0 14px; }
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    /* Grow to fill a wide landscape screen, but stop before portrait
+       stretches each tile into a mostly-empty rectangle. */
+    grid-auto-rows: minmax(132px, 186px);
+    gap: 14px;
+    align-content: start;
+  }
+  .product-btn {
+    position: relative;
+    min-height: 132px;
+    padding: 16px 16px 14px;
+    display: flex; flex-direction: column; align-items: flex-start;
+    justify-content: space-between; gap: 10px;
+    text-align: left;
+    background: var(--card);
+    border: 2px solid var(--rule);
+    border-radius: var(--radius);
+    color: var(--ink);
+    /* The plate colour reads as a weight-plate edge down the left side. */
+    border-left: 10px solid var(--plate, var(--ink));
+    transition: transform .06s ease-out, background-color .06s ease-out;
+  }
+  .product-btn .name {
+    font-size: 23px; font-weight: 700; line-height: 1.15; letter-spacing: -.015em;
+  }
+  .product-btn .price {
+    font-size: 27px; font-weight: 800; color: var(--plate, var(--ink));
+    font-variant-numeric: tabular-nums;
+  }
+  .product-btn:active { transform: scale(.97); background: var(--chalk); }
+  .product-btn:disabled { opacity: .35; }
+
+  /* ---------- enrollment ---------- */
+  .enroll-wrap { display: flex; flex-direction: column; gap: 18px; max-width: 560px; width: 100%; margin: 0 auto; }
+  .enroll-title {
+    font-size: clamp(26px, 3.6vw, 38px); font-weight: 800;
+    letter-spacing: -.02em; line-height: 1.1;
+  }
+  #name-input {
+    width: 100%; padding: 20px 22px;
+    font: inherit; font-size: 26px; font-weight: 600; color: var(--ink);
+    background: var(--card); border: 2px solid var(--rule); border-radius: 14px;
+  }
+  #name-input:focus { outline: 3px solid var(--plate-blue); outline-offset: 2px; }
+
+  .btn-primary {
+    min-height: 68px; padding: 0 28px;
+    font-size: 21px; font-weight: 700; color: #fff;
+    background: var(--ink); border: 0; border-radius: 14px;
+  }
+  .btn-primary:disabled { background: var(--rule); color: var(--ink-soft); }
+  .btn-primary:active:not(:disabled) { opacity: .85; }
+
   .cancel-btn {
-    min-height: 60px; margin-top: auto; background: #2a1a1a;
-    border: 2px solid #553333; border-radius: 12px; color: #ffaaaa; font-size: 18px;
+    margin-top: auto; min-height: 60px;
+    font-size: 18px; font-weight: 600; color: var(--ink-soft);
+    background: none; border: 2px solid var(--rule); border-radius: 14px;
+  }
+  .cancel-btn:active { background: var(--card); }
+
+  /* ---------- success: the signature moment ----------
+     A full-bleed flood in the item's own colour, legible from across the
+     room so a member walking away knows it registered — and knows WHICH
+     item registered, which is what catches a mis-tap. */
+  #success {
+    background: var(--flood, var(--ink));
+    color: #fff;
+    align-items: center; justify-content: center; gap: 10px;
+    text-align: center;
+  }
+  .success-check {
+    font-size: 56px; line-height: 1; margin-bottom: 4px;
+  }
+  .success-item {
+    font-size: clamp(38px, 7vw, 76px); font-weight: 800;
+    letter-spacing: -.03em; line-height: 1;
+  }
+  .success-who { font-size: clamp(18px, 2.4vw, 24px); font-weight: 600; opacity: .82; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    #success.active .success-item,
+    #success.active .success-check { animation: rise .22s cubic-bezier(.2,.7,.3,1) both; }
+    #success.active .success-who { animation: rise .22s cubic-bezier(.2,.7,.3,1) .04s both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   }
 
-  /* Print Stylesheet — Task 7 */
+  /* ---------- admin ---------- */
+  #admin { gap: 16px; }
+  .admin-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 14px; border-bottom: 2px solid var(--rule);
+  }
+  .admin-head h2 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+  #admin-batches { flex: 1; overflow-y: auto; }
+  #admin-batches h3 {
+    font-size: 13px; font-weight: 700; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 10px;
+  }
+  .batch {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--card); border: 2px solid var(--rule);
+    border-radius: 14px; padding: 14px 16px; margin-bottom: 10px;
+  }
+  .batch-id { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .batch-meta { color: var(--ink-soft); font-size: 15px; }
+  .pill {
+    font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+    padding: 5px 10px; border-radius: 999px; color: #fff;
+  }
+  .pill.pending   { background: var(--plate-amber); }
+  .pill.processed { background: var(--plate-green); }
+  .batch .spacer { flex: 1; }
+  .btn-sm {
+    min-height: 48px; padding: 0 18px; font-size: 16px; font-weight: 700;
+    border-radius: 12px; border: 2px solid var(--rule);
+    background: var(--card); color: var(--ink);
+  }
+  .btn-sm.solid { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn-danger {
+    min-height: 52px; padding: 0 18px; font-size: 16px; font-weight: 700;
+    border-radius: 12px; background: none;
+    border: 2px solid var(--danger); color: var(--danger);
+  }
+  .admin-foot { display: flex; gap: 12px; align-items: center; }
+  .warn-note {
+    background: #FDECEA; border: 2px solid #F5C6C2; color: var(--danger);
+    border-radius: 12px; padding: 12px 14px; font-weight: 600; margin-bottom: 12px;
+  }
+  .empty { color: var(--ink-soft); font-size: 17px; padding: 8px 2px; }
+
+  /* ---------- print: the worker's sheet ---------- */
   @media print {
     body { background: #fff; color: #000; overflow: visible; }
-    .screen, #reader, #admin, #idle, #locked, #success { display: none; }
-    #print-container { display: block; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    .screen, #reader, #admin, #idle, #locked, #success { display: none !important; }
+    #print-container { display: block !important; padding: 0; }
+    #print-container h1 { font-size: 20pt; margin-bottom: 2pt; }
+    #print-container .sub { font-size: 10pt; color: #444; margin-bottom: 12pt; }
+    table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+    th { text-align: left; border-bottom: 2px solid #000; padding: 6pt 4pt; font-size: 9pt;
+         text-transform: uppercase; letter-spacing: .08em; }
+    td { border-bottom: 1px solid #ccc; padding: 6pt 4pt; }
+    tr.member-start td { border-top: 2px solid #000; }
+    .total-row td { font-weight: 700; border-top: 2px solid #000; border-bottom: 0; }
   }
 </style>
 </head>
 <body>
 
 <div id="idle" class="screen">
+  <p class="eyebrow">Iron Jungle</p>
   <h2 class="idle-title" id="idle-title">Scan your gym barcode</h2>
-  <div id="reader"></div>
+  <div class="scan-frame">
+    <div id="reader"></div>
+    <span></span><span></span><span></span><span></span>
+  </div>
+  <p class="hint">Card or phone &mdash; hold it steady</p>
   <p id="scanner-error" class="error" hidden></p>
 </div>
 
@@ -124,13 +318,17 @@
 
 <div id="success" class="screen"></div>
 <div id='admin' class='screen'>
-  <h2>Admin Panel</h2>
-  <button onclick='returnToIdle()'>Back to Idle</button>
+  <div class="admin-head">
+    <h2>Sales admin</h2>
+    <button class="btn-sm" onclick='returnToIdle()'>Back to kiosk</button>
+  </div>
   <div id='admin-batches'></div>
-  <hr>
-  <button onclick='doCreateBatch()'>Create New Batch</button>
-  <hr>
-  <button onclick='doClearData()'>Clear all data</button>
+  <div class="admin-foot">
+    <button class="btn-primary" id="create-batch-btn" onclick='doCreateBatch()'>Create batch</button>
+    <span class="batch-meta" id="waiting-note"></span>
+    <span class="spacer" style="flex:1"></span>
+    <button class="btn-danger" onclick='doClearData()'>Clear all data</button>
+  </div>
 </div>
 <div id="print-container" style="display: none;"></div>
 
@@ -200,6 +398,25 @@ function formatPrice(cents) {
   return '$' + (cents / 100).toFixed(2);
 }
 
+/* Plate colours, borrowed from competition weight plates where colour IS the
+   weight. Derived from the item id so it is stable for the life of the item —
+   a regular learns "Gatorade is the blue one" and stops reading labels. Adding
+   a catalog item needs no colour decision. */
+const PLATE_VARS = ['--plate-red', '--plate-blue', '--plate-amber',
+                    '--plate-green', '--plate-violet', '--plate-teal'];
+
+function plateVar(id) {
+  // By catalog position, so neighbouring tiles never share a colour — two
+  // green tiles side by side defeats the whole point of colour-as-identity.
+  // Falls back to a hash for items no longer in the catalog, so an old sale
+  // still resolves to a stable colour on a reprint.
+  const i = CATALOG.findIndex(item => item.id === id);
+  if (i !== -1) return PLATE_VARS[i % PLATE_VARS.length];
+  let h = 0;
+  for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
+  return PLATE_VARS[h % PLATE_VARS.length];
+}
+
 /**
  * Render product grid into a target element.
  */
@@ -212,6 +429,7 @@ function renderProductGrid(container, catalog, onItemClick) {
     btn.type = 'button';
     btn.className = 'product-btn';
     btn.dataset.productId = item.id;
+    btn.style.setProperty('--plate', 'var(' + plateVar(item.id) + ')');
     // Enabled only while a member is locked in. The grid is rendered from
     // updateLockedScreen(), so this is normally true — but it must be derived
     // from state, never hardcoded: hardcoding `true` here left the buttons
@@ -370,9 +588,14 @@ function enterRecording() {
 function enterSuccess(sale) {
   if (state !== 'recording') return;
   state = 'success';
-  document.getElementById('success').innerHTML = `
-    <h2>Thanks, ${escapeHtml(sale.memberName)}</h2>
-    <p>${escapeHtml(sale.productName)} &times; ${sale.qty}</p>
+  // Flood the screen in the item's own plate colour — readable from across
+  // the room, and it names the item so a mis-tap is caught immediately.
+  const scr = document.getElementById('success');
+  scr.style.setProperty('--flood', 'var(' + plateVar(sale.productId) + ')');
+  scr.innerHTML = `
+    <div class="success-check" aria-hidden="true">&check;</div>
+    <div class="success-item">${escapeHtml(sale.productName)}${sale.qty > 1 ? ' &times; ' + sale.qty : ''}</div>
+    <div class="success-who">Charged to ${escapeHtml(sale.memberName)}</div>
   `;
   showScreen('success');
   setTimeout(() => {
@@ -435,12 +658,15 @@ function updateLockedScreen(forceEnroll) {
 
   if (member) {
     locked.innerHTML = `
-      <h2>Hello, ${escapeHtml(member.name)}</h2>
-      <button id="not-me-btn">Not ${escapeHtml(member.name)}?</button>
+      <div class="member-bar">
+        <span class="member-name">Hi, ${escapeHtml(member.name)}</span>
+        <button class="linkish" id="not-me-btn">Not you?</button>
+      </div>
       <div class="qty-row">
-        <button id="qty-minus">&minus;</button>
+        <span class="qty-label">Qty</span>
+        <button id="qty-minus" aria-label="One fewer">&minus;</button>
         <span id="qty-value">1</span>
-        <button id="qty-plus">+</button>
+        <button id="qty-plus" aria-label="One more">+</button>
       </div>
       <div id="catalog-container"></div>
       <button class="cancel-btn" id="cancel-btn">Cancel</button>
@@ -455,9 +681,13 @@ function updateLockedScreen(forceEnroll) {
     renderProductGrid(document.getElementById('catalog-container'), CATALOG, onProductTap);
   } else {
     locked.innerHTML = `
-      <h2>Welcome — what's your name?</h2>
-      <input type="text" id="name-input" placeholder="Your name" maxlength="40" autocomplete="off">
-      <button id="enroll-btn" disabled>Save</button>
+      <div class="enroll-wrap">
+        <h2 class="enroll-title">First time &mdash; what&rsquo;s your name?</h2>
+        <p class="hint" style="text-align:left">We only ask once. Next time your badge just works.</p>
+        <input type="text" id="name-input" placeholder="Your name" maxlength="40"
+               autocomplete="off" autocapitalize="words" spellcheck="false">
+        <button class="btn-primary" id="enroll-btn" disabled>Save my name</button>
+      </div>
       <button class="cancel-btn" id="cancel-btn">Cancel</button>
     `;
     const nameInput = document.getElementById('name-input');
@@ -604,27 +834,37 @@ function printBatch(batchId) {
   const totalCents = batchSales.reduce((sum, s) => sum + s.price * s.qty, 0);
 
   const container = document.getElementById('print-container');
+  // Grouped by member so the worker keys one person's whole tab before
+  // switching accounts. A rule above each member's first row makes the
+  // groups scannable when you are halfway down the page.
   container.innerHTML = `
-    <h2>Batch: ${batchId}</h2>
-    <p>Created: ${new Date(batch.createdAt).toLocaleString()}</p>
-    <p>Line count: ${lineCount}</p>
+    <h1>Iron Jungle &mdash; counter sales</h1>
+    <p class="sub">
+      Batch ${escapeHtml(batchId.slice(0, 8))} &middot;
+      ${new Date(batch.createdAt).toLocaleString()} &middot;
+      ${lineCount} ${lineCount === 1 ? 'line' : 'lines'} &middot;
+      ${members.length} ${members.length === 1 ? 'member' : 'members'}
+    </p>
     <table>
       <thead>
-        <tr><th>Member</th><th>Item</th><th>Qty</th><th>Price</th><th>Time</th></tr>
+        <tr><th>Member</th><th>Item</th><th>Qty</th><th>Amount</th><th>Time</th></tr>
       </thead>
       <tbody>
         ${members.map(m => grouped[m].map((s, i) => `
-          <tr>
+          <tr${i === 0 ? ' class="member-start"' : ''}>
             <td>${i === 0 ? escapeHtml(m) : ''}</td>
             <td>${escapeHtml(s.productName)}</td>
             <td>${s.qty}</td>
             <td>${formatPrice(s.price * s.qty)}</td>
-            <td>${new Date(s.at).toLocaleTimeString()}</td>
+            <td>${new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</td>
           </tr>
         `).join('')).join('')}
+        <tr class="total-row">
+          <td>Total</td><td></td><td></td>
+          <td>${formatPrice(totalCents)}</td><td></td>
+        </tr>
       </tbody>
     </table>
-    <p class="batch-total">Total: ${formatPrice(totalCents)}</p>
   `;
   window.print();
 }
@@ -730,22 +970,44 @@ function doConfirmBatch(id) {
 function renderAdmin() {
   const container = document.getElementById('admin-batches');
   const batches = listAdminBatches();
+  const unexported = pendingSaleCount();
+
   const corruptNote = corrupted
-    ? '<p style="color:#ff6b6b;">Warning: storage was quarantined as corrupt at last load.</p>'
+    ? '<p class="warn-note">Storage was quarantined as corrupt at last load. ' +
+      'Earlier sales may be missing.</p>'
     : '';
-  container.innerHTML = '<h3>Batches</h3>' + corruptNote + batches.map(b => {
-    const statusLabel = b.status === 'pending' ? 'Pending' : 'Processed';
-    const confirmBtn = b.status === 'pending'
-      ? `<button onclick='doConfirmBatch("${b.id}")'>Confirm Keyed</button>`
-      : '';
+
+  const rows = batches.map(b => {
+    const pending = b.status === 'pending';
     return `
-      <div style='padding:10px; border:1px solid #444; margin:5px 0;'>
-        Batch ${b.id.slice(0, 8)} (${b.saleIds.length} sales) — ${statusLabel}
-        <button onclick='printBatch("${b.id}")'>Print</button>
-        ${confirmBtn}
+      <div class="batch">
+        <span class="batch-id">Batch ${b.id.slice(0, 8)}</span>
+        <span class="pill ${pending ? 'pending' : 'processed'}">${pending ? 'Pending' : 'Keyed in'}</span>
+        <span class="batch-meta">${b.saleIds.length} ${b.saleIds.length === 1 ? 'sale' : 'sales'}</span>
+        <span class="spacer"></span>
+        <button class="btn-sm" onclick='printBatch("${b.id}")'>Print</button>
+        ${pending ? `<button class="btn-sm solid" onclick='doConfirmBatch("${b.id}")'>Confirm keyed</button>` : ''}
       </div>
     `;
   }).join('');
+
+  const empty = batches.length ? '' :
+    `<p class="empty">No batches yet. ${unexported
+      ? unexported + ' sale' + (unexported === 1 ? '' : 's') + ' waiting \u2014 create a batch to print them.'
+      : 'Sales will appear here once members start buying.'}</p>`;
+
+  container.innerHTML = corruptNote + '<h3>Batches</h3>' + rows + empty;
+
+  // Put the waiting count next to the action it affects, and don't offer a
+  // button that would do nothing.
+  const createBtn = document.getElementById('create-batch-btn');
+  const note = document.getElementById('waiting-note');
+  if (createBtn) createBtn.disabled = unexported === 0;
+  if (note) {
+    note.textContent = unexported === 0
+      ? 'Nothing waiting'
+      : unexported + ' sale' + (unexported === 1 ? '' : 's') + ' waiting';
+  }
 }
 
 function doClearData() {
