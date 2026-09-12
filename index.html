@@ -46,7 +46,9 @@
      bottom of the screen black. It has to be set on everything. */
   * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
 
-  html, body { height: 100%; }
+  /* overflow on html too — the document element is the scroller on iOS, and
+     body { overflow: hidden } alone does not stop it being displaced. */
+  html, body { height: 100%; overflow: hidden; }
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
@@ -691,9 +693,9 @@ function updateLockedScreen(forceEnroll) {
       </div>
       <div class="qty-row">
         <span class="qty-label">Qty</span>
-        <button id="qty-minus" aria-label="One fewer">&minus;</button>
+        <button id="qty-minus" data-rapid aria-label="One fewer">&minus;</button>
         <span id="qty-value">1</span>
-        <button id="qty-plus" aria-label="One more">+</button>
+        <button id="qty-plus" data-rapid aria-label="One more">+</button>
       </div>
       <div id="catalog-container"></div>
       <button class="cancel-btn" id="cancel-btn">Cancel</button>
@@ -1117,21 +1119,40 @@ wireAdminEntry();
  * #111 app shell underneath. CSS cannot hold the visual viewport down, so
  * cancel the second tap of a double-tap ourselves.
  *
- * Deliberately scoped to NON-controls: preventDefault on touchend also cancels
- * that tap's click, and members do tap "+" twice quickly on the qty stepper.
- * The scan screen — where this gesture actually happens — has no controls at
- * all, so nothing real is lost. The admin long-press is unaffected; it runs off
- * touchstart/touchend listeners, which still fire.
+ * Because maximum-scale is 1.0 the magnification never happens, so the symptom
+ * is the page shifting up at the SAME size with the #111 shell showing below —
+ * the scroll half of the gesture, with nothing to scroll.
+ *
+ * Scoping: preventDefault on touchend also cancels that tap's click, so this
+ * cancels the second tap everywhere EXCEPT controls that opt in with
+ * `data-rapid`. The only place a fast second activation means anything is the
+ * qty stepper. On a product button the second tap is already discarded by the
+ * duplicate-sale guard, so cancelling it costs nothing — that is exactly the
+ * "double-tap a product, get one sale" case. The admin long-press is
+ * unaffected; it runs off touchstart/touchend listeners, which still fire.
  */
 function wireKioskGestures() {
   let lastTouchEnd = 0;
   document.addEventListener('touchend', (e) => {
     const now = Date.now();
-    const onControl = e.target && e.target.closest &&
-      e.target.closest('button, input, a, [role="button"]');
-    if (!onControl && now - lastTouchEnd <= 350) e.preventDefault();
+    const rapidOk = e.target && e.target.closest && e.target.closest('[data-rapid]');
+    if (!rapidOk && now - lastTouchEnd <= 350) e.preventDefault();
     lastTouchEnd = now;
   }, { passive: false });
+
+  // Belt and braces for the displacement itself. The kiosk is exactly one
+  // viewport tall and nothing at document level is ever meant to scroll, so if
+  // anything displaces it — the gesture above slipping through, a keyboard
+  // dismissal — put it back. Skipped while a text field is focused, because
+  // there iOS scrolls the input into view on purpose and fighting it would hide
+  // the field the member is typing in.
+  window.addEventListener('scroll', () => {
+    const el = document.activeElement;
+    if (el && el.tagName === 'INPUT') return;
+    if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
+      window.scrollTo(0, 0);
+    }
+  }, { passive: true });
 
   // Pinch zoom fires gesture* on iOS. A zoomed kiosk is a stuck kiosk — the
   // member cannot undo it and the next person inherits it. Tap targets are

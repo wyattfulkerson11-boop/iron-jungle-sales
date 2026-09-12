@@ -268,28 +268,63 @@ check('real html5-qrcode accepts the scanner config and reaches getUserMedia', (
 });
 
 /* ---- 11. double-tap zoom is cancelled, but fast taps on controls are not ---- */
-check('a fast double-tap is cancelled off-control and allowed on controls', () => {
-  const w = boot().window;
-  const tap = (el) => {
+check('a fast double-tap is cancelled, except on the qty stepper', () => {
+  // lastTouchEnd is module state in the page, so each scenario needs its own
+  // fresh load — otherwise a "first" tap lands inside the previous one's window.
+  const tapper = (w) => (el) => {
     const e = new w.Event('touchend', { bubbles: true, cancelable: true });
     el.dispatchEvent(e);
     return e.defaultPrevented;
   };
-  // Off-control (the scan screen has no controls at all) — second tap cancelled.
-  const title = w.document.getElementById('idle-title');
-  assert.strictEqual(tap(title), false, 'first tap must pass through');
-  assert.strictEqual(tap(title), true, 'a fast second tap off-control is cancelled');
+  const purchaseScreen = (w, badge) => {
+    enrollAndBuy(w, badge, 'Stepper', 0);
+    w.onScanSuccess(badge);
+  };
 
-  // On a real control, BOTH taps must survive — members tap "+" twice quickly
-  // and preventDefault on touchend would eat the second click.
-  enrollAndBuy(w, 'IJG18309', 'Stepper', 0);
-  w.onScanSuccess('IJG18309');
-  const plus = w.document.getElementById('qty-plus');
-  assert.strictEqual(tap(plus), false, 'first tap on a control');
-  assert.strictEqual(tap(plus), false, 'fast second tap on a control must NOT be cancelled');
+  // Off-control: the scan screen, where a stray double-tap displaced the page.
+  const w1 = boot().window, tap1 = tapper(w1);
+  const title = w1.document.getElementById('idle-title');
+  assert.strictEqual(tap1(title), false, 'first tap must pass through');
+  assert.strictEqual(tap1(title), true, 'a fast second tap is cancelled');
+
+  // A product button IS covered — this is the "double-tap a product, get one
+  // sale" case, where the second tap is already discarded anyway.
+  const w2 = boot().window, tap2 = tapper(w2);
+  purchaseScreen(w2, 'IJG18309');
+  const product = w2.document.querySelectorAll('.product-btn')[1];
+  assert.strictEqual(tap2(product), false, 'first tap on a product');
+  assert.strictEqual(tap2(product), true, 'fast second tap on a product is cancelled');
+
+  // The qty stepper opts out via data-rapid — members tap "+" twice quickly and
+  // preventDefault on touchend would eat the second click.
+  const w3 = boot().window, tap3 = tapper(w3);
+  purchaseScreen(w3, 'IJG18311');
+  const plus = w3.document.getElementById('qty-plus');
+  assert.ok(plus.hasAttribute('data-rapid'), '+ must opt in to rapid taps');
+  assert.strictEqual(tap3(plus), false, 'first tap on +');
+  assert.strictEqual(tap3(plus), false, 'fast second tap on + must NOT be cancelled');
   plus.click(); plus.click();
-  assert.strictEqual(w.document.getElementById('qty-value').textContent.trim(), '3',
+  assert.strictEqual(w3.document.getElementById('qty-value').textContent.trim(), '3',
     'two quick taps on + must both count');
+});
+
+/* ---- 11b. a displaced document snaps back, but not while typing ---- */
+check('document scroll is pinned at 0, except while a field is focused', () => {
+  const w = boot().window;
+  // jsdom has no layout, so drive the handler directly by faking a displacement.
+  let scrolledTo = null;
+  w.scrollTo = (x, y) => { scrolledTo = [x, y]; };
+  Object.defineProperty(w, 'scrollY', { value: 400, configurable: true });
+  w.dispatchEvent(new w.Event('scroll'));
+  assert.deepStrictEqual(scrolledTo, [0, 0], 'a displaced kiosk must snap back');
+
+  // While the member is typing their name, iOS scrolls the input into view on
+  // purpose — snapping back would hide the field.
+  scrolledTo = null;
+  w.onScanSuccess('IJG18310');
+  w.document.getElementById('name-input').focus();
+  w.dispatchEvent(new w.Event('scroll'));
+  assert.strictEqual(scrolledTo, null, 'must not fight iOS while an input is focused');
 });
 
 /* ---- 12. rebinding a known card tells the truth and is escapable ---- */
