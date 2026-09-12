@@ -1,112 +1,666 @@
 <!DOCTYPE html>
+<!-- html5-qrcode v2.3.8 — vendored from https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>Iron Jungle — Counter Sales</title>
 <script src="vendor/html5-qrcode.min.js"></script>
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: sans-serif; background: #111; color: #eee; height: 100vh; user-select: none; }
-  .screen { display: none; height: 100vh; padding: 20px; overflow-y: auto; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #111;
+    color: #eee;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .screen { display: none; height: 100vh; padding: 20px; }
   .screen.active { display: flex; flex-direction: column; }
-  .btn { padding: 15px; background: #333; color: white; border: none; border-radius: 8px; font-size: 18px; margin-top: 10px; }
-  input { padding: 15px; font-size: 18px; border-radius: 8px; border: 1px solid #444; }
-  .qty-ctrl { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 20px 0; }
-  @media print {
-    body * { display: none !important; }
-    #print-container, #print-container * { display: block !important; }
-    #print-container { position: absolute; left: 0; top: 0; width: 100%; color: black; background: white; padding: 20px; font-size: 12pt; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    .total-row { font-weight: bold; }
+
+  /* Product Catalog Grid — Task 3 */
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    padding: 16px 0;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .product-btn {
+    min-height: 88px;
+    min-width: 88px;
+    padding: 16px 12px;
+    background: #222;
+    border: 2px solid #444;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .product-btn:active {
+    background: #333;
+    border-color: #ff5500;
+  }
+  .product-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: #333;
+  }
+  .product-btn .price {
+    font-size: 16px;
+    font-weight: 400;
+    color: #aaa;
   }
 </style>
 </head>
 <body>
 
-<div id="idle" class="screen active">
-  <h1 id="header">Iron Jungle</h1>
-  <div id="reader" style="width:100%; max-width:500px; margin:0 auto;"></div>
-</div>
+<!-- Screen: idle — camera is running, waiting for a scan -->
+<div id="idle" class="screen"></div>
 
+<!-- Screen: locked — badge scanned, items selectable -->
 <div id="locked" class="screen">
-  <h2 id="greet">Hello</h2>
-  <div id="enroll-ui" style="display:none; flex-direction:column;">
-    <input type="text" id="name-input" placeholder="Enter Name">
-    <button class="btn" id="enroll-btn">Enroll</button>
-  </div>
-  <button class="btn" id="not-me-btn" style="display:none;">Not me?</button>
-  <div class="qty-ctrl">
-    <button class="btn" id="qty-dec">-</button>
-    <span id="qty-val" style="font-size: 24px;">1</span>
-    <button class="btn" id="qty-inc">+</button>
-  </div>
   <div id="catalog-container"></div>
-  <button class="btn" id="cancel-btn">Cancel</button>
 </div>
 
-<div id="success" class="screen"><h2>Sale Recorded!</h2></div>
-<div id="admin" class="screen">
-  <h2>Admin</h2>
-  <button class="btn" onclick="setState('idle')">Back</button>
-  <div id="admin-content"></div>
-</div>
-<div id="print-container" style="display:none;"></div>
+<!-- Screen: success — just confirmed, auto-clears -->
+<div id="success" class="screen"></div>
+
+<!-- Screen: admin — PIN-gated management view -->
+<div id="admin" class="screen"></div>
 
 <script>
 'use strict';
-const CATALOG = [{ id: 'water', name: 'Water', sku: 'water', price: 150 }];
-const ADMIN_PIN = '0000'; // PLACEHOLDER
-let state = 'idle';
-let currentBadgeId = null;
-let qty = 1;
 
-// Admin Logic (Task 8)
-document.getElementById('header').oncontextmenu = (e) => {
-  e.preventDefault();
-  const pin = prompt("Enter PIN");
-  if (pin === ADMIN_PIN) setState('admin');
-};
+/* ============================================================
+ * Task 3 — Product catalog
+ *
+ * FILL IN: The catalog below contains placeholder items and prices.
+ * Replace with the real fridge and shelf contents when known.
+ * Prices are integer cents ($3.50 = 350).
+ * ============================================================ */
+const CATALOG = [
+  { id: 'water',         name: 'Bottled Water',      sku: 'water',         price: 150 },
+  { id: 'gatorade',      name: 'Gatorade',           sku: 'gatorade',      price: 250 },
+  { id: 'protein-bar',   name: 'Protein Bar',        sku: 'protein-bar',   price: 300 },
+  { id: 'energy-drink',  name: 'Energy Drink',       sku: 'energy-drink',  price: 350 },
+  { id: 'pre-workout',   name: 'Pre-Workout Scoop',  sku: 'pre-workout',   price: 200 },
+  { id: 'protein-shake', name: 'RTD Protein Shake',  sku: 'protein-shake', price: 450 },
+  { id: 'shaker-cup',    name: 'Shaker Bottle',      sku: 'shaker-cup',    price: 800 },
+  { id: 'lifting-straps',name: 'Lifting Straps',     sku: 'lifting-straps',price: 1200 }
+];
 
-function setState(newState) {
-  state = newState;
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(state === 'recording' ? 'locked' : state).classList.add('active');
-  if (state === 'admin') {
-    const s = loadState();
-    let html = '<h3>Batches</h3>';
-    s.batches.forEach(b => html += `<p>${b.id} - ${b.status} <button class="btn" onclick="printBatch('${b.id}')">Print</button></p>`);
-    document.getElementById('admin-content').innerHTML = html;
+/**
+ * Validate catalog integrity. Throws loudly on duplicate id, duplicate sku,
+ * missing or empty name, or invalid price.
+ */
+function validateCatalog(catalog) {
+  if (!Array.isArray(catalog) || catalog.length === 0) {
+    throw new Error('Catalog must be a non-empty array');
   }
-  // ... existing UI logic ...
-  if (state === 'locked') {
-    const member = loadState().members[currentBadgeId];
-    document.getElementById('greet').textContent = member ? `Hello, ${member.name}` : 'New Member!';
-    document.getElementById('enroll-ui').style.display = member ? 'none' : 'flex';
-    document.getElementById('not-me-btn').style.display = member ? 'block' : 'none';
+  const ids = new Set();
+  const skus = new Set();
+  for (const item of catalog) {
+    if (!item.id || typeof item.id !== 'string') {
+      throw new Error(`Catalog item missing valid id: ${JSON.stringify(item)}`);
+    }
+    if (ids.has(item.id)) {
+      throw new Error(`Duplicate catalog id: "${item.id}"`);
+    }
+    ids.add(item.id);
+
+    if (!item.sku || typeof item.sku !== 'string') {
+      throw new Error(`Catalog item "${item.id}" missing valid sku`);
+    }
+    if (skus.has(item.sku)) {
+      throw new Error(`Duplicate catalog sku: "${item.sku}"`);
+    }
+    skus.add(item.sku);
+
+    if (!item.name || typeof item.name !== 'string' || item.name.trim() === '') {
+      throw new Error(`Catalog item "${item.id}" has empty or missing name`);
+    }
+
+    if (typeof item.price !== 'number' || !Number.isInteger(item.price) || item.price < 0) {
+      throw new Error(`Catalog item "${item.id}" has invalid price (must be non-negative integer cents): ${item.price}`);
+    }
+  }
+  return true;
+}
+
+// Startup validation — fail fast if catalog is broken
+validateCatalog(CATALOG);
+
+function formatPrice(cents) {
+  return '$' + (cents / 100).toFixed(2);
+}
+
+/**
+ * Render product grid into a target element.
+ */
+function renderProductGrid(container, catalog, onItemClick) {
+  container.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'product-grid';
+  for (const item of catalog) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'product-btn';
+    btn.dataset.productId = item.id;
+    btn.disabled = true; // disabled by default until state machine locks
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'name';
+    nameSpan.textContent = item.name;
+
+    const priceSpan = document.createElement('span');
+    priceSpan.className = 'price';
+    priceSpan.textContent = formatPrice(item.price);
+
+    btn.appendChild(nameSpan);
+    btn.appendChild(priceSpan);
+
+    if (onItemClick) {
+      btn.addEventListener('click', () => onItemClick(item));
+    }
+    grid.appendChild(btn);
+  }
+  container.appendChild(grid);
+}
+
+/* ============================================================
+ * Storage layer (Task 2)
+ * ============================================================ */
+
+const STORAGE_KEY = 'ij.v1';
+
+function defaultState() {
+  return {
+    schema: 1,
+    members: {},
+    sales: [],
+    batches: []
+  };
+}
+
+let corrupted = false;
+
+function loadState() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    return defaultState();
+  }
+  if (!raw) return defaultState();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    quarantine(STORAGE_KEY);
+    corrupted = true;
+    return defaultState();
+  }
+
+  if (!parsed || parsed.schema !== 1) {
+    quarantine(STORAGE_KEY);
+    corrupted = true;
+    return defaultState();
+  }
+
+  const state = defaultState();
+  state.members = parsed.members && typeof parsed.members === 'object' ? parsed.members : {};
+  state.sales = Array.isArray(parsed.sales) ? parsed.sales : [];
+  state.batches = Array.isArray(parsed.batches) ? parsed.batches : [];
+  return state;
+}
+
+function quarantine(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const badKey = key + '.corrupt.' + stamp;
+    if (raw !== null) localStorage.setItem(badKey, raw);
+    localStorage.removeItem(key);
+  } catch (e) {}
+}
+
+function saveState(state) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (e) {
+    return false;
   }
 }
 
-// ... existing helper functions (createBatch, printBatch, formatPrice, loadState, etc.) ...
-function createBatch() { const state = loadState(); const pendingSales = state.sales.filter(s => s.batchId === null); if (pendingSales.length === 0) return null; const batchId = crypto.randomUUID(); pendingSales.forEach(s => s.batchId = batchId); const batch = { id: batchId, createdAt: new Date().toISOString(), saleIds: pendingSales.map(s => s.id), status: 'pending', processedAt: null }; state.batches.push(batch); if (saveState(state)) return batch; return null; }
-function printBatch(batchId) { const state = loadState(); const batch = state.batches.find(b => b.id === batchId); if (!batch) return; const sales = state.sales.filter(s => batch.saleIds.includes(s.id)); sales.sort((a, b) => a.memberName.localeCompare(b.memberName)); let html = `<h1>Batch Report</h1><p>ID: ${batch.id}</p>`; html += `<table><thead><tr><th>Member</th><th>Item</th><th>Qty</th><th>Price</th><th>Time</th></tr></thead><tbody>`; let total = 0; sales.forEach(s => { total += s.price * s.qty; html += `<tr><td>${s.memberName}</td><td>${s.productName}</td><td>${s.qty}</td><td>${formatPrice(s.price)}</td><td>${new Date(s.at).toLocaleTimeString()}</td></tr>`; }); html += `<tr class="total-row"><td colspan="3">Total</td><td colspan="2">${formatPrice(total)}</td></tr></tbody></table>`; document.getElementById('print-container').innerHTML = html; window.print(); }
-function formatPrice(cents) { return '$' + (cents / 100).toFixed(2); }
-function onScanSuccess(decodedText) { if (state !== 'idle') return; currentBadgeId = decodedText; setState('locked'); }
-function recordSale(product) { if (state !== 'locked') return; setState('recording'); const sale = { id: crypto.randomUUID(), badgeId: currentBadgeId, memberName: loadState().members[currentBadgeId].name, productId: product.id, productName: product.name, sku: product.sku, price: product.price, qty: qty, at: new Date().toISOString(), batchId: null }; if (addSale(sale)) { setState('success'); setTimeout(() => { setState('idle'); qty = 1; document.getElementById('qty-val').textContent = 1; }, 2000); } else { setState('locked'); } }
-const STORAGE_KEY = 'ij.v1';
-function loadState() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"schema":1,"members":{},"sales":[],"batches":[]}'); }
-function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); return true; }
-function addSale(sale) { const s = loadState(); s.sales.push(sale); return saveState(s); }
-document.getElementById('qty-inc').onclick = () => { if (qty < 10) qty++; document.getElementById('qty-val').textContent = qty; };
-document.getElementById('qty-dec').onclick = () => { if (qty > 1) qty--; document.getElementById('qty-val').textContent = qty; };
-document.getElementById('cancel-btn').onclick = () => setState('idle');
-CATALOG.forEach(p => { const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = p.name; btn.onclick = () => recordSale(p); document.getElementById('catalog-container').appendChild(btn); });
-const scanner = new Html5Qrcode("reader");
-scanner.start({ facingMode: "user" }, { fps: 10 }, onScanSuccess)
-  .catch(err => {
-    document.getElementById('reader').innerHTML = '<p style="padding:20px;">Camera access required.</p>';
-  });
-</script>
+function addSale(sale) {
+  const state = loadState();
+  state.sales.push(sale);
+  return saveState(state);
+}
+
+/* ============================================================
+ * Task 4 — Scanner state machine
+ * ============================================================ */
+// State machine: idle -> locked -> recording -> success -> idle
+let state = 'idle';
+let currentBadgeId = null;
+let scannerInstance = null;
+let lockoutTimer = null; // 3-second secondary guard
+
+// Lockout duration for secondary guard (ms)
+const LOCKOUT_MS = 3000;
+
+/**
+ * Enters idle state and starts the camera.
+ */
+function enterIdle() {
+  state = 'idle';
+  currentBadgeId = null;
+  showScreen('idle');
+  startScanner();
+}
+
+/**
+ * Enters locked state: pauses camera and shows item grid.
+ */
+function enterLocked(badgeId) {
+  if (state !== 'idle') return; // ignore if not idle
+  state = 'locked';
+  currentBadgeId = badgeId;
+  pauseScanner();
+  showScreen('locked');
+  updateLockedScreen();
+  startSecondaryLockout(); // secondary guard
+}
+
+/**
+ * Enters recording state: disables all product buttons synchronously.
+ */
+function enterRecording() {
+  if (state !== 'locked') return;
+  state = 'recording';
+  // Sync disable of product buttons
+  const productButtons = document.querySelectorAll('.product-btn');
+  productButtons.forEach(btn => btn.disabled = true);
+  showScreen('locked'); // remain on locked screen
+}
+
+/**
+ * Enters success state: shows confirmation for 2s then returns to idle.
+ */
+function enterSuccess() {
+  if (state !== 'recording') return;
+  state = 'success';
+  showScreen('success');
+  setTimeout(() => {
+    enterIdle(); // auto-return after 2s
+  }, 2000);
+}
+
+/**
+ * Returns to idle from any state (e.g., cancel).
+ */
+function returnToIdle() {
+  state = 'idle';
+  currentBadgeId = null;
+  clearLockoutTimer();
+  resumeScanner();
+  showScreen('idle');
+}
+
+/**
+ * Secondary guard: prevents immediate re-trigger if badge sits in frame.
+ */
+function startSecondaryLockout() {
+  clearLockoutTimer();
+  lockoutTimer = setTimeout(() => {
+    lockoutTimer = null;
+    // After lockout, we stay locked but allow re-scan if badge removed/reinserted
+  }, LOCKOUT_MS);
+}
+function clearLockoutTimer() {
+  if (lockoutTimer) {
+    clearTimeout(lockoutTimer);
+    lockoutTimer = null;
+  }
+}
+
+/* ============================================================
+ * UI / Screen management
+ * ============================================================ */
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+
+function updateLockedScreen() {
+  const member = loadState().members[currentBadgeId];
+  if (member) {
+    // Known member: show greeting + "Not [Name]?" control
+    document.getElementById('locked').innerHTML = `
+      <h2>Hello, ${escapeHtml(member.name)}</h2>
+      <button id="not-me-btn">Not ${escapeHtml(member.name)}?</button>
+      <div id="catalog-container"></div>
+    `;
+    // Wire up the "Not me?" button
+    document.getElementById('not-me-btn').addEventListener('click', () => {
+      // Clear current badge mapping and prompt for name
+      delete loadState().members[currentBadgeId];
+      saveState(loadState()); // persist the removal
+      enterIdle(); // restart scan
+    });
+    // Render product grid (buttons disabled until we enter recording)
+    renderProductGrid(document.getElementById('catalog-container'), CATALOG, (product) => {
+      enterRecording();
+      recordSale(product);
+    });
+  } else {
+    // Unknown member: show enrollment UI
+    document.getElementById('locked').innerHTML = `
+      <h2>New Member Detected</h2>
+      <input type="text" id="name-input" placeholder="Enter Name" maxlength="40">
+      <button id="enroll-btn">Enroll</button>
+      <div id="catalog-container"></div>
+    `;
+    const nameInput = document.getElementById('name-input');
+    const enrollBtn = document.getElementById('enroll-btn');
+    const catalogContainer = document.getElementById('catalog-container');
+    
+    // Enable/disable enroll button based on input
+    nameInput.addEventListener('input', () => {
+      enrollBtn.disabled = !nameInput.value.trim();
+    });
+    
+    // Handle enrollment
+    enrollBtn.addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      
+      // Save member
+      const state = loadState();
+      state.members[currentBadgeId] = { name, enrolledAt: new Date().toISOString() };
+      if (!saveState(state)) {
+        alert('Failed to save member');
+        return;
+      }
+      
+      // Enable product grid and proceed to locked state
+      renderProductGrid(catalogContainer, CATALOG, (product) => {
+        enterRecording();
+        recordSale(product);
+      });
+      nameInput.disabled = true;
+      enrollBtn.disabled = true;
+    });
+    
+    // Initial state
+    enrollBtn.disabled = true;
+    
+    // Focus the input
+    nameInput.focus();
+  }
+}
+
+/**
+ * HTML escape helper to prevent XSS.
+ */
+function escapeHtml(text) {
+  const map = {
+    '&': '&',
+    '<': '<',
+    '>': '>',
+    '"': '"',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+/* ============================================================
+ * Task 5 — Enrollment (stub, to be expanded in Task 5)
+ * ============================================================ */
+// Enrollment logic lives in updateLockedScreen() above
+
+/* ============================================================
+ * Task 6 — Sale capture
+ * ============================================================ */
+function recordSale(product) {
+  if (state !== 'recording') return;
+  
+  // Build sale with snapshots
+  const member = loadState().members[currentBadgeId];
+  const sale = {
+    id: crypto.randomUUID(),
+    badgeId: currentBadgeId,
+    memberName: member ? member.name : 'Unknown',
+    productId: product.id,
+    productName: product.name,   // snapshot
+    sku: product.sku,            // snapshot
+    price: product.price,        // snapshot (cents)
+    qty: 1,                      // default 1; stepper comes in Task 6
+    at: new Date().toISOString(),
+    batchId: null
+  };
+  
+  // Attempt to save
+  if (addSale(sale)) {
+    enterSuccess();
+  } else {
+    // Persistence failed — stay locked so user can retry
+    alert('Failed to save sale. Please try again.');
+    // Note: we stay in 'recording' state but buttons are disabled.
+    // In a real implementation we might revert to 'locked'.
+  }
+}
+
+/* ============================================================
+ * Scanner Integration (Task 1 + 4)
+ * ============================================================ */
+function startScanner() {
+  if (scannerInstance) return;
+  try {
+    scannerInstance = new Html5Qrcode("reader");
+    // Configure for rear-facing camera if available, otherwise user-facing
+    const config = { fps: 10, qrbox: 250 };
+    // Prefer environment camera; fallback logic handled by library
+    scannerInstance.start(
+      { facingMode: "environment" }, 
+      config,
+      onScanSuccess,
+      onScanError
+    );
+  } catch (e) {
+    console.error('Failed to start scanner:', e);
+    showScannerError('Camera unavailable');
+  }
+}
+
+function pauseScanner() {
+  if (scannerInstance) {
+    scannerInstance.pause();
+  }
+}
+
+function resumeScanner() {
+  if (scannerInstance) {
+    scannerInstance.resume();
+  }
+}
+
+function onScanSuccess(decodedText) {
+  // Primary guard: only accept scans from idle state
+  if (state !== 'idle') return;
+  
+  // Pause camera immediately (primary fix)
+  pauseScanner();
+  
+  // Store badge ID and enter locked state
+  currentBadgeId = decodedText.trim();
+  enterLocked(currentBadgeId);
+}
+
+function onScanError(error) {
+  // Ignore scan errors; we just want to keep scanning
+  console.warn('Scan error:', error);
+}
+
+function showScannerError(message) {
+  const idleScreen = document.getElementById('idle');
+  idleScreen.innerHTML = `<p class="error">${escapeHtml(message)}</p>`;
+}
+
+/* ============================================================
+ * Task 2 & 3 — demo() self-checks (updated for state machine)
+ * ============================================================ */
+function demoStorage() {
+  const results = [];
+  function assert(cond, label) {
+    results.push({ ok: !!cond, label });
+    if (!cond) console.error('FAIL:', label);
+  }
+
+  localStorage.clear();
+  const s1 = loadState();
+  assert(s1.schema === 1 && Array.isArray(s1.sales) && Array.isArray(s1.batches), 'default shape has schema=1');
+
+  const sale = {
+    id: 's-test-1', badgeId: 'B1', memberName: 'Jane D.',
+    productId: 'water', productName: 'Water', sku: 'water',
+    price: 200, qty: 1, at: new Date().toISOString(), batchId: null
+  };
+  assert(addSale(sale) === true, 'addSale returns true');
+  assert(loadState().sales.length === 1, 'sale round-trips');
+
+  const origSet = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function () { throw new Error('QuotaExceededError'); };
+  assert(addSale(Object.assign({}, sale, { id: 's-test-2' })) === false, 'addSale returns false when setItem throws');
+  localStorage.setItem = origSet;
+  assert(loadState().sales.length === 1, 'failed addSale does not persist');
+
+  localStorage.setItem(STORAGE_KEY, '{not valid json!!');
+  const s4 = loadState();
+  assert(corrupted === true, 'corrupted flag set after garbage write');
+  assert(s4.sales.length === 0, 'loadState quarantines');
+
+  return results;
+}
+
+function demoCatalog() {
+  const results = [];
+  function assert(cond, label) {
+    results.push({ ok: !!cond, label });
+    if (!cond) console.error('FAIL:', label);
+  }
+
+  assert(validateCatalog(CATALOG) === true, 'default CATALOG is valid');
+
+  let dupSkuThrew = false;
+  try {
+    validateCatalog([
+      { id: 'a', name: 'A', sku: 'DUP', price: 100 },
+      { id: 'b', name: 'B', sku: 'DUP', price: 200 }
+    ]);
+  } catch (e) {
+    dupSkuThrew = true;
+  }
+  assert(dupSkuThrew, 'duplicate SKU throws at startup');
+
+  let dupIdThrew = false;
+  try {
+    validateCatalog([
+      { id: 'DUP', name: 'A', sku: 'a', price: 100 },
+      { id: 'DUP', name: 'B', sku: 'b', price: 200 }
+    ]);
+  } catch (e) {
+    dupIdThrew = true;
+  }
+  assert(dupIdThrew, 'duplicate id throws at startup');
+
+  let emptyNameThrew = false;
+  try {
+    validateCatalog([{ id: 'a', name: '   ', sku: 'a', price: 100 }]);
+  } catch (e) {
+    emptyNameThrew = true;
+  }
+  assert(emptyNameThrew, 'empty name throws at startup');
+
+  return results;
+}
+
+/* ============================================================
+ * Task 4 — State machine self-check
+ * ============================================================ */
+function demoScanner() {
+  const results = [];
+  function assert(cond, label) {
+    results.push({ ok: !!cond, label });
+    if (!cond) console.error('FAIL:', label);
+  }
+
+  // Reset state
+  state = 'idle';
+  currentBadgeId = null;
+  clearLockoutTimer();
+  
+  // Mock scanner functions
+  let paused = false;
+  const mockPause = () => { paused = true; };
+  const mockResume = () => { paused = false; };
+  
+  // Temporarily replace scanner functions
+  const originalPause = pauseScanner;
+  const originalResume = resumeScanner;
+  pauseScanner = mockPause;
+  resumeScanner = mockResume;
+  
+  try {
+    // Test: idle -> scan -> locked
+    onScanSuccess('TEST_BADGE');
+    assert(state === 'locked', 'First scan should lock state');
+    assert(paused === true, 'Scanner should pause on lock');
+    
+    // Test: locked -> second scan ignored
+    const wasPaused = paused;
+    onScanSuccess('OTHER_BADGE');
+    assert(state === 'locked', 'State should remain locked');
+    assert(paused === wasPaused, 'Scanner pause state should be unchanged');
+    
+    // Test: cancel returns to idle and resumes
+    returnToIdle();
+    assert(state === 'idle', 'Cancel should return to idle');
+    assert(paused === false, 'Scanner should resume after cancel');
+    
+  } finally {
+    // Restore original functions
+    pauseScanner = originalPause;
+    resumeScanner = originalResume;
+  }
+  
+  return results;
+}
+
+// Run demos if in browser
+if (typeof window !== 'undefined' && window.localStorage) {
+  demoStorage();
+  demoCatalog();
+  demoScanner();
+}
 </script>
 </body>
 </html>
