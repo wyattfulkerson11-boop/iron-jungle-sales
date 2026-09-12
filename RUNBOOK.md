@@ -101,7 +101,8 @@ Do all of these yourself, at the counter, with the stand where it will live.
 | 2 | Type your name, Save | Item grid appears |
 | 3 | Tap a drink | "Thanks, [name]" then back to scan screen after 2s |
 | 4 | Scan your card again | Greets you by name — no typing |
-| 5 | Tap **Not [your name]?** | Name prompt comes back |
+| 5 | Tap **Not you?** | Asks "Whose card is this?" and names who it's saved as. Nothing is overwritten yet |
+| 5b | On that screen tap **No, I'm [your name]** | Straight back to the greeting, name untouched |
 | 6 | Scan, then walk away without tapping | Tap **Cancel** — returns to scan screen |
 | 7 | Pull the screen down hard | Nothing should refresh |
 | 8 | Double-tap a product fast | **One** sale, not two |

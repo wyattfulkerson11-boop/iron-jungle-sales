@@ -40,7 +40,11 @@
     --tap:        88px;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* touch-action is NOT inherited, so setting it on body alone left every
+     child on the default `auto` — which is why a fast double-tap on the iPad
+     still triggered Safari's smart zoom, scrolled the content up and left the
+     bottom of the screen black. It has to be set on everything. */
+  * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
 
   html, body { height: 100%; }
 
@@ -673,7 +677,8 @@ function enrollCurrentBadge(name) {
 
 function updateLockedScreen(forceEnroll) {
   const locked = document.getElementById('locked');
-  const member = forceEnroll ? null : loadState().members[currentBadgeId];
+  const existing = loadState().members[currentBadgeId];
+  const member = forceEnroll ? null : existing;
 
   if (member) {
     locked.innerHTML = `
@@ -699,16 +704,34 @@ function updateLockedScreen(forceEnroll) {
     wireCancel();
     renderProductGrid(document.getElementById('catalog-container'), CATALOG, onProductTap);
   } else {
+    // forceEnroll on a card we already know is a REBIND, not a first
+    // enrollment. Showing "First time — we only ask once" to someone whose card
+    // is already saved is a lie, and a member who taps "Not you?" by mistake
+    // needs an obvious way back that does not overwrite whoever owns the card.
+    const rebind = !!existing;
     locked.innerHTML = `
       <div class="enroll-wrap">
-        <h2 class="enroll-title">First time &mdash; what&rsquo;s your name?</h2>
-        <p class="hint" style="text-align:left">We only ask once. Next time your badge just works.</p>
+        <h2 class="enroll-title">${rebind
+          ? 'Whose card is this?'
+          : 'First time &mdash; what&rsquo;s your name?'}</h2>
+        <p class="hint" style="text-align:left">${rebind
+          ? 'Saved as ' + escapeHtml(existing.name) + '. A new name replaces that for future sales; past sales keep the name they were rung up under.'
+          : 'We only ask once. Next time your badge just works.'}</p>
         <input type="text" id="name-input" placeholder="Your name" maxlength="40"
                autocomplete="off" autocapitalize="words" spellcheck="false">
         <button class="btn-primary" id="enroll-btn" disabled>Save my name</button>
+        ${rebind
+          ? '<button class="linkish" id="its-me-btn">No, I&rsquo;m ' + escapeHtml(existing.name) + '</button>'
+          : ''}
       </div>
       <button class="cancel-btn" id="cancel-btn">Cancel</button>
     `;
+    if (rebind) {
+      // Straight back to the greeting. Nothing was written, so a mis-tap costs
+      // one more tap instead of somebody's identity.
+      document.getElementById('its-me-btn')
+        .addEventListener('click', () => updateLockedScreen());
+    }
     const nameInput = document.getElementById('name-input');
     const enrollBtn = document.getElementById('enroll-btn');
 
@@ -1115,31 +1138,22 @@ function startScanner() {
     { facingMode: "environment" },
     {
       fps: 10,
-      // CALIBRATION KNOB. Gym keytags are a wide, short strip; a square box
-      // crops the start/stop bars out of frame and nothing decodes, ever.
-      //
-      // The vertical fraction is deliberately generous. The library maps this
-      // region to source pixels with videoWidth/clientWidth per axis, i.e. it
-      // assumes the video is STRETCHED to fill #reader — but our CSS forces
-      // object-fit: cover, which crops instead. With a 16:9 stream in a square
-      // frame that mismatch means a short box decodes only the middle slice of
-      // what the member can actually see, so a card held high or low in the
-      // corner brackets looks aimed and silently never reads.
-      //
-      // Both dimensions must stay >= 50px or start() throws.
-      qrbox: function (vw, vh) {
-        return {
-          width: Math.max(50, Math.floor(vw * 0.9)),
-          height: Math.max(50, Math.floor(vh * 0.8))
-        };
-      },
-      // 720p, not 1080p. Because the region above is now large, 1080p would put
-      // ~1.5MP through the decoder ten times a second and throttle an iPad on a
-      // gym shift; 720p across a generous region costs about the same as the old
-      // 250px square while actually covering the barcode, and still leaves ~1150
-      // source pixels across the strip — plenty for Code 39's narrow bars.
-      // When present this replaces cameraIdOrConfig for getUserMedia, so it has
-      // to carry facingMode itself.
+      // NO qrbox, deliberately. Setting one turns on the library's own shaded
+      // box, which injects a second set of corner brackets inside .scan-frame's
+      // — that was the odd double-corner look on the iPad. Omitting it also
+      // makes the decode region the WHOLE frame, which is what we want here:
+      // the library maps its region to source pixels with videoWidth/clientWidth
+      // per axis, i.e. assuming the video is stretched to fill #reader, but our
+      // CSS forces object-fit: cover, which crops. Any sub-region therefore
+      // decodes a different area than the member can see. Full frame has no
+      // such mismatch, and a keytag anywhere in view reads.
+      // CALIBRATION KNOB: if this is too slow on the iPad, drop the resolution
+      // below rather than reintroducing a qrbox.
+      // 720p, not 1080p. The whole frame is decoded now, so 1080p would push
+      // ~2MP through the decoder ten times a second and throttle an iPad over a
+      // gym shift. 720p still leaves 1280 source pixels across the card, plenty
+      // for Code 39's narrow bars. When present this replaces cameraIdOrConfig
+      // for getUserMedia, so it has to carry facingMode itself.
       videoConstraints: {
         facingMode: "environment",
         width: { ideal: 1280 },

@@ -194,17 +194,18 @@ check('admin screen is not reachable without a correct PIN', () => {
   assert.ok(!w.document.getElementById('admin').classList.contains('active'));
 });
 
-/* ---- 9. the scan box is a wide strip, not a square ---- */
-check('scan box is a wide strip, not a square', () => {
+/* ---- 9. no qrbox: full-frame decode, and no second set of corners ---- */
+check('no qrbox is set, so the library draws no shaded box of its own', () => {
   const w = boot().window;
   const { cfg } = w.__scanCfg;
-  // A square qrbox crops the start/stop bars off a Code 39 gym keytag and
-  // nothing decodes. This is the bug the iPad hit on 2026-09-12.
-  const box = cfg.qrbox(460, 460);
-  assert.ok(box.width > box.height, `must be wider than tall, got ${box.width}x${box.height}`);
-  // Below 50px in either dimension the library throws instead of clamping.
-  const tiny = cfg.qrbox(40, 40);
-  assert.ok(tiny.width >= 50 && tiny.height >= 50, 'must never return a sub-50px box');
+  // Any qrbox does two bad things here. It turns on the library's shaded box,
+  // which injects a second set of corner brackets inside .scan-frame's (the odd
+  // double-corner look on the iPad), and it makes the decode region a
+  // sub-rectangle that the library maps assuming object-fit: fill while our CSS
+  // forces cover — so it decodes a different area than the member can see.
+  assert.strictEqual(cfg.qrbox, undefined, 'qrbox must stay unset');
+  // A square 250px qrbox was the original "scans nothing" bug; never go back.
+  assert.notStrictEqual(cfg.qrbox, 250);
 });
 
 /* ---- 10. the REAL library accepts our start() arguments ----
@@ -240,10 +241,6 @@ check('real html5-qrcode accepts the scanner config and reaches getUserMedia', (
     { facingMode: 'environment' },
     {
       fps: 10,
-      qrbox: (vw, vh) => ({
-        width: Math.max(50, Math.floor(vw * 0.9)),
-        height: Math.max(50, Math.floor(vh * 0.8))
-      }),
       videoConstraints: {
         facingMode: 'environment',
         width: { ideal: 1280 },
@@ -270,7 +267,31 @@ check('real html5-qrcode accepts the scanner config and reaches getUserMedia', (
   }));
 });
 
-/* ---- 11. implausible barcode reads are ignored ---- */
+/* ---- 11. rebinding a known card tells the truth and is escapable ---- */
+check('"Not you?" does not silently overwrite the member who owns the card', () => {
+  const w = boot().window;
+  enrollAndBuy(w, 'IJG18308', 'Wyatt F.', 0);
+  w.onScanSuccess('IJG18308');
+  const locked = w.document.getElementById('locked');
+  assert.ok(locked.textContent.includes('Wyatt F.'), 'greets the known member');
+
+  w.document.getElementById('not-me-btn').click();
+  // It must not claim this is a first enrollment — the card is already known.
+  assert.ok(!locked.textContent.includes('First time'),
+    'rebind screen must not say "First time"');
+  assert.ok(locked.textContent.includes('Wyatt F.'),
+    'rebind screen must name who the card is currently saved as');
+  // Nothing is written just by opening the rebind screen.
+  assert.strictEqual(w.loadState().members.IJG18308.name, 'Wyatt F.');
+
+  // And there is a way back that costs one tap, not an identity.
+  w.document.getElementById('its-me-btn').click();
+  assert.ok(locked.textContent.includes('Wyatt F.'), 'back to the greeting');
+  assert.strictEqual(w.loadState().members.IJG18308.name, 'Wyatt F.',
+    'a mis-tap must leave the stored member untouched');
+});
+
+/* ---- 12. implausible barcode reads are ignored ---- */
 check('a misread barcode cannot become a badge ID', () => {
   const w = boot().window;
   const n = w.normalizeBadgeId;
