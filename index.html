@@ -111,7 +111,45 @@
 </div>
 
 <div id="success" class="screen"></div>
-<div id="admin" class="screen"></div>
+<div id='admin' class='screen'>
+  <h2>Admin Panel</h2>
+  <button onclick='returnToIdle()'>Back to Idle</button>
+  <div id='admin-batches'></div>
+  <hr>
+  <button onclick='doCreateBatch()'>Create New Batch</button>
+</div>
+<script>
+  function doCreateBatch() {
+    if (createBatch()) {
+      alert('Batch created.');
+      renderAdmin();
+    } else {
+      alert('No sales to batch.');
+    }
+  }
+  
+  function doConfirmBatch(id) {
+    if (confirmBatch(id)) {
+      alert('Batch marked processed.');
+      renderAdmin();
+    } else {
+      alert('Failed.');
+    }
+  }
+
+  function renderAdmin() {
+    const s = loadState();
+    const container = document.getElementById('admin-batches');
+    container.innerHTML = '<h3>Pending Batches</h3>' + 
+      s.batches.filter(b => b.status === 'pending').map(b => `
+        <div style='padding:10px; border:1px solid #444; margin:5px 0;'>
+          Batch ${b.id.slice(0,8)} (${b.saleIds.length} sales)
+          <button onclick='printBatch("${b.id}")'>Print</button>
+          <button onclick='doConfirmBatch("${b.id}")'>Confirm Keyed</button>
+        </div>
+      `).join('');
+  }
+</script>
 <div id="print-container" style="display: none;"></div>
 
 <script>
