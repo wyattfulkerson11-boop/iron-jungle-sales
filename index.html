@@ -292,10 +292,39 @@
   }
   .empty { color: var(--ink-soft); font-size: 17px; padding: 8px 2px; }
 
+  /* The last-action line wraps onto its own row inside .batch (flex-wrap). */
+  .batch-row-2 { flex-basis: 100%; display: flex; gap: 6px; align-items: center; }
+  .batch-last { color: var(--ink-soft); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+  /* On-screen batch report. A worker keying sales in reads this instead of
+     needing a printer or the iOS pinch-to-PDF trick. */
+  #batch-view {
+    position: fixed; inset: 0; z-index: 20; background: var(--chalk);
+    display: flex; flex-direction: column; padding: 20px 24px; gap: 12px;
+  }
+  #batch-view[hidden] { display: none; }
+  .batch-view-head, .batch-view-foot { display: flex; align-items: center; gap: 12px; }
+  .batch-view-head h2 { font-size: 22px; }
+  .batch-view-head .spacer { flex: 1; }
+  #batch-view-body {
+    flex: 1; min-height: 0; overflow-y: auto; background: var(--card);
+    border: 2px solid var(--rule); border-radius: 14px; padding: 16px 18px;
+  }
+  #batch-view-body h1 { font-size: 20px; margin-bottom: 2px; }
+  #batch-view-body .sub { color: var(--ink-soft); font-size: 15px; margin-bottom: 14px; }
+  #batch-view-body table { width: 100%; border-collapse: collapse; }
+  #batch-view-body th {
+    text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--ink-soft); border-bottom: 2px solid var(--rule); padding: 8px 6px;
+  }
+  #batch-view-body td { padding: 11px 6px; border-bottom: 1px solid var(--rule); font-size: 16px; }
+  #batch-view-body tr.member-start td { border-top: 2px solid var(--ink); }
+  #batch-view-body .total-row td { font-weight: 800; border-top: 2px solid var(--ink); border-bottom: 0; }
+
   /* ---------- print: the worker's sheet ---------- */
   @media print {
     body { background: #fff; color: #000; overflow: visible; }
-    .screen, #reader, #admin, #idle, #locked, #success { display: none !important; }
+    .screen, #reader, #admin, #idle, #locked, #success, #batch-view { display: none !important; }
     #print-container { display: block !important; padding: 0; }
     #print-container h1 { font-size: 20pt; margin-bottom: 2pt; }
     #print-container .sub { font-size: 10pt; color: #444; margin-bottom: 12pt; }
@@ -337,6 +366,18 @@
     <span class="batch-meta" id="waiting-note"></span>
     <span class="spacer" style="flex:1"></span>
     <button class="btn-danger" onclick='doClearData()'>Clear all data</button>
+  </div>
+</div>
+<div id="batch-view" hidden>
+  <div class="batch-view-head">
+    <h2 id="batch-view-title"></h2>
+    <span class="spacer"></span>
+    <button class="btn-sm" onclick='closeBatchView()'>Close</button>
+  </div>
+  <div id="batch-view-body"></div>
+  <div class="batch-view-foot">
+    <button class="btn-sm" id="batch-view-share" onclick='shareViewedBatch()'>Share</button>
+    <button class="btn-sm" onclick='printViewedBatch()'>Print</button>
   </div>
 </div>
 <div id="print-container" style="display: none;"></div>
@@ -864,10 +905,43 @@ function createBatch() {
   return null;
 }
 
-function printBatch(batchId) {
+/**
+ * Batch identity, for humans. `id` is a random UUID — fine as a key, useless
+ * for a worker trying to say which batch they keyed. Every batch already
+ * carries createdAt and processedAt, so a readable label needs no stored
+ * counter and no migration; batches are minutes or days apart, so the
+ * timestamp is unique in practice. The 8-char id stays on screen and on the
+ * printout so a saved sheet can still be matched to its row.
+ */
+function fmtStamp(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'unknown time';
+  return d.toLocaleString([], {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+  });
+}
+
+function batchLabel(batch) {
+  return 'Batch \u2014 ' + fmtStamp(batch.createdAt);
+}
+
+/** The last thing that happened to this batch — what Wyatt asked to see. */
+function lastActionLabel(batch) {
+  return (batch.status === 'processed' && batch.processedAt)
+    ? 'Keyed in ' + fmtStamp(batch.processedAt)
+    : 'Created ' + fmtStamp(batch.createdAt);
+}
+
+/**
+ * Build one batch's report once, in both forms. Print, the on-screen view and
+ * Share all render the same numbers from here — three separate builders would
+ * be three chances for the printed sheet and the shared copy to disagree about
+ * what a member owes.
+ */
+function buildBatchReport(batchId) {
   const state = loadState();
   const batch = state.batches.find(b => b.id === batchId);
-  if (!batch) return;
+  if (!batch) return null;
 
   const batchSales = state.sales.filter(s => s.batchId === batchId);
   const grouped = batchSales.reduce((acc, s) => {
@@ -879,16 +953,17 @@ function printBatch(batchId) {
   const members = Object.keys(grouped).sort();
   const lineCount = batchSales.length;
   const totalCents = batchSales.reduce((sum, s) => sum + s.price * s.qty, 0);
+  const shortId = batchId.slice(0, 8);
+  const label = batchLabel(batch);
+  const time = (s) => new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-  const container = document.getElementById('print-container');
   // Grouped by member so the worker keys one person's whole tab before
   // switching accounts. A rule above each member's first row makes the
   // groups scannable when you are halfway down the page.
-  container.innerHTML = `
+  const html = `
     <h1>Iron Jungle &mdash; counter sales</h1>
     <p class="sub">
-      Batch ${escapeHtml(batchId.slice(0, 8))} &middot;
-      ${new Date(batch.createdAt).toLocaleString()} &middot;
+      ${escapeHtml(label)} &middot; ${escapeHtml(shortId)} &middot;
       ${lineCount} ${lineCount === 1 ? 'line' : 'lines'} &middot;
       ${members.length} ${members.length === 1 ? 'member' : 'members'}
     </p>
@@ -903,7 +978,7 @@ function printBatch(batchId) {
             <td>${escapeHtml(s.productName)}</td>
             <td>${s.qty}</td>
             <td>${formatPrice(s.price * s.qty)}</td>
-            <td>${new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</td>
+            <td>${time(s)}</td>
           </tr>
         `).join('')).join('')}
         <tr class="total-row">
@@ -913,7 +988,99 @@ function printBatch(batchId) {
       </tbody>
     </table>
   `;
+
+  // Plain text for Share — pasteable into Notes or an email and readable
+  // without any styling, which is the point of getting it off the iPad.
+  const lines = [
+    'Iron Jungle \u2014 counter sales',
+    label + ' (' + shortId + ')',
+    lineCount + (lineCount === 1 ? ' line' : ' lines') + ' \u00b7 ' +
+      members.length + (members.length === 1 ? ' member' : ' members'),
+    ''
+  ];
+  members.forEach(m => {
+    lines.push(m);
+    grouped[m].forEach(s => {
+      lines.push('  ' + s.productName.padEnd(20) +
+        ('x' + s.qty).padEnd(5) +
+        formatPrice(s.price * s.qty).padStart(8) + '  ' + time(s));
+    });
+  });
+  lines.push('', 'Total ' + formatPrice(totalCents));
+
+  return { batch, label, shortId, html, text: lines.join('\n'), lineCount, totalCents };
+}
+
+function printBatch(batchId) {
+  const report = buildBatchReport(batchId);
+  if (!report) return;
+  document.getElementById('print-container').innerHTML = report.html;
   window.print();
+}
+
+/* The batch currently open in the on-screen view, so its own Print and Share
+ * buttons know what they are acting on. */
+let viewedBatchId = null;
+
+/**
+ * Show a batch on screen. The report was previously built only into
+ * #print-container, which is display:none outside @media print — so the one
+ * way to read a batch was the OS print sheet, and on an iPad with no printer
+ * set up that meant no way to read it at all. Keying sales into the gym
+ * software needs to read the batch, not print it.
+ */
+function viewBatch(batchId) {
+  const report = buildBatchReport(batchId);
+  if (!report) return;
+  viewedBatchId = batchId;
+  document.getElementById('batch-view-title').textContent = report.label;
+  document.getElementById('batch-view-body').innerHTML = report.html;
+  // Share is not offered where the platform cannot do it (desktop browsers,
+  // and any iOS build without the Web Share API).
+  const shareBtn = document.getElementById('batch-view-share');
+  if (shareBtn) shareBtn.hidden = !canShareBatch();
+  document.getElementById('batch-view').hidden = false;
+}
+
+function closeBatchView() {
+  viewedBatchId = null;
+  document.getElementById('batch-view').hidden = true;
+}
+
+function printViewedBatch() {
+  if (viewedBatchId) printBatch(viewedBatchId);
+}
+
+function canShareBatch() {
+  return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+}
+
+/**
+ * Hand the batch to iOS's own share sheet — Save to Files, Mail, Notes,
+ * AirDrop. This is the answer to "there is no way to pull the form off the
+ * iPad": it needs no printer and no PDF trick.
+ */
+function shareBatch(batchId) {
+  const report = buildBatchReport(batchId);
+  if (!report) return;
+  if (!canShareBatch()) {
+    alert('Sharing is not available on this device. Use Print instead.');
+    return;
+  }
+  // A share the worker dismisses rejects with AbortError. That is a normal
+  // outcome, not a failure worth a dialog at the counter.
+  Promise.resolve(navigator.share({
+    title: 'Iron Jungle \u2014 ' + report.label,
+    text: report.text
+  })).catch((e) => {
+    if (e && e.name === 'AbortError') return;
+    console.error('Share failed:', e);
+    alert('Could not share that batch. Use Print instead.');
+  });
+}
+
+function shareViewedBatch() {
+  if (viewedBatchId) shareBatch(viewedBatchId);
 }
 
 function confirmBatch(batchId) {
@@ -1028,12 +1195,18 @@ function renderAdmin() {
     const pending = b.status === 'pending';
     return `
       <div class="batch">
-        <span class="batch-id">Batch ${b.id.slice(0, 8)}</span>
+        <span class="batch-id">${escapeHtml(batchLabel(b))}</span>
         <span class="pill ${pending ? 'pending' : 'processed'}">${pending ? 'Pending' : 'Keyed in'}</span>
         <span class="batch-meta">${b.saleIds.length} ${b.saleIds.length === 1 ? 'sale' : 'sales'}</span>
         <span class="spacer"></span>
+        <button class="btn-sm" onclick='viewBatch("${b.id}")'>View</button>
+        ${canShareBatch() ? `<button class="btn-sm" onclick='shareBatch("${b.id}")'>Share</button>` : ''}
         <button class="btn-sm" onclick='printBatch("${b.id}")'>Print</button>
         ${pending ? `<button class="btn-sm solid" onclick='doConfirmBatch("${b.id}")'>Confirm keyed</button>` : ''}
+        <span class="batch-row-2">
+          <span class="batch-last">${escapeHtml(lastActionLabel(b))}</span>
+          <span class="batch-last">&middot; ${escapeHtml(b.id.slice(0, 8))}</span>
+        </span>
       </div>
     `;
   }).join('');

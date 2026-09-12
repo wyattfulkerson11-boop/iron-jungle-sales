@@ -369,6 +369,109 @@ check('a misread barcode cannot become a badge ID', () => {
     'a junk read must not advance the kiosk to the purchase screen');
 });
 
+/* ---- 14. batch labels, and one report behind print/view/share ---- */
+check('a batch is labelled by time and shows its last action', () => {
+  const w = boot().window;
+  enrollAndBuy(w, 'IJG18320', 'Batch Tester', 0);
+  const b = w.createBatch();
+  assert.ok(b, 'batch should be created');
+
+  // Pending: last action is its creation.
+  assert.ok(w.batchLabel(b).startsWith('Batch \u2014'), 'label reads "Batch — <when>"');
+  assert.ok(!/[0-9a-f]{8}-/.test(w.batchLabel(b)), 'label must not be a raw UUID');
+  assert.ok(w.lastActionLabel(b).startsWith('Created '), 'pending shows Created');
+
+  // Confirmed: last action becomes the keying-in, not the creation.
+  w.confirmBatch(b.id);
+  const after = w.loadState().batches.find(x => x.id === b.id);
+  assert.ok(w.lastActionLabel(after).startsWith('Keyed in '), 'processed shows Keyed in');
+  assert.notStrictEqual(after.processedAt, null);
+
+  // A batch with a broken timestamp must still render, not throw.
+  assert.strictEqual(w.fmtStamp('not-a-date'), 'unknown time');
+});
+
+check('print, view and share all report the same total', () => {
+  const w = boot().window;
+  // Sales are built directly rather than through taps: the purchase flow has
+  // its own tests and a 3s scan lockout between members, and what matters here
+  // is that the report adds up. Two members, one buying twice with qty 2, so
+  // grouping, quantity and totals all get exercised.
+  const mk = (id, name, item, price, qty) => assert.ok(w.addSale({
+    id, badgeId: 'IJG1840' + id, memberName: name,
+    productId: item, productName: item, sku: item,
+    price, qty, at: new Date().toISOString(), batchId: null
+  }), 'sale ' + id + ' should save');
+  mk('s1', 'Alice A.', 'Gatorade', 250, 1);
+  mk('s2', 'Alice A.', 'Protein Bar', 300, 2);
+  mk('s3', 'Bob B.', 'Bottled Water', 150, 1);
+  const b = w.createBatch();
+
+  const r = w.buildBatchReport(b.id);
+  const expected = 250 * 1 + 300 * 2 + 150 * 1; // 1000c — qty must be counted
+  assert.strictEqual(r.lineCount, 3, 'three sale lines');
+  assert.strictEqual(r.totalCents, expected, 'total must multiply by qty');
+
+  // The same money must appear in both renderings — a printed sheet and a
+  // shared copy disagreeing about what a member owes is the worst outcome here.
+  const money = w.formatPrice(expected);
+  assert.ok(r.html.includes(money), 'HTML report carries the total');
+  assert.ok(r.text.includes(money), 'text report carries the total');
+  assert.ok(r.text.includes('Alice A.') && r.text.includes('Bob B.'),
+    'text report names both members');
+  assert.ok(r.html.includes(r.shortId), 'report carries the short id to match a saved sheet');
+  assert.strictEqual(w.buildBatchReport('no-such-batch'), null);
+});
+
+check('View opens the report on screen and Close puts it away', () => {
+  const w = boot().window;
+  enrollAndBuy(w, 'IJG18323', 'Viewer', 0);
+  const b = w.createBatch();
+  const panel = w.document.getElementById('batch-view');
+  assert.strictEqual(panel.hidden, true, 'hidden until asked for');
+
+  w.viewBatch(b.id);
+  assert.strictEqual(panel.hidden, false, 'View shows the panel');
+  assert.ok(w.document.getElementById('batch-view-body').textContent.includes('Viewer'),
+    'the report is actually rendered on screen, not just into #print-container');
+  assert.ok(w.document.getElementById('batch-view-title').textContent.startsWith('Batch \u2014'));
+
+  w.closeBatchView();
+  assert.strictEqual(panel.hidden, true, 'Close hides it again');
+});
+
+check('Share is hidden when the platform cannot share, and a cancel is silent', () => {
+  const w = boot().window;
+  enrollAndBuy(w, 'IJG18324', 'Sharer', 0);
+  const b = w.createBatch();
+
+  // jsdom has no navigator.share, which is the desktop/unsupported case.
+  assert.strictEqual(w.canShareBatch(), false);
+  w.viewBatch(b.id);
+  assert.strictEqual(w.document.getElementById('batch-view-share').hidden, true,
+    'Share must not be offered where it cannot work');
+  assert.ok(!w.document.getElementById('admin-batches').innerHTML.includes('shareBatch('),
+    'no Share button in the row either');
+
+  // With the API present, the batch text is handed over...
+  let got = null;
+  w.navigator.share = (payload) => { got = payload; return Promise.resolve(); };
+  assert.strictEqual(w.canShareBatch(), true);
+  w.shareBatch(b.id);
+  assert.ok(got && got.text.includes('Sharer'), 'shares the batch text');
+
+  // ...and a worker dismissing the sheet must not raise an alert.
+  let alerted = false;
+  w.alert = () => { alerted = true; };
+  const abort = new Error('dismissed'); abort.name = 'AbortError';
+  w.navigator.share = () => Promise.reject(abort);
+  w.shareBatch(b.id);
+  return new Promise(r => setImmediate(() => {
+    try { assert.strictEqual(alerted, false, 'a dismissed share is not an error'); r(); }
+    catch (e) { r(e); }
+  }));
+});
+
 Promise.all(pending).then(() => {
   let failed = 0;
   for (const [status, label] of results) {
