@@ -383,3 +383,58 @@ names below are the ones it calls, so use exactly these.
 If a test fails, say so — do not report success you did not earn.
 
 **Commit:** `feat: PIN-gated admin and Task 7 report gaps`
+
+---
+
+## Task 9 — Kiosk hardening (revised)
+
+**`test-task9.js` at project root is the acceptance criteria.** It is written and
+currently fails 7 of 13. Make it pass 13/13. **Do not modify `test-task9.js`** —
+if a test looks wrong, say so in your report instead of editing it.
+
+The 6 already-passing tests are regression guards (manifest, camera-denied
+message, no-CDN invariant, and the admin long-press route). Do not break them.
+
+### What to add
+
+1. **Touch hardening**, in the existing `<style>` block:
+   - `touch-action: manipulation` so a fast double-tap on a product button
+     doesn't zoom the page instead of registering a sale.
+   - `overscroll-behavior-y: none` so a pull-to-refresh mid-sale can't reload
+     the kiosk and drop the member's selection.
+   - `-webkit-touch-callout: none` so iOS doesn't raise a copy/share callout.
+
+2. **One exception to the above.** `body` already sets `user-select: none`, which
+   is right for a kiosk — but the enrollment name field is a real text input.
+   Add an `input` rule re-enabling `user-select: text` (and the `-webkit-`
+   prefix). A member who can't place a caret to fix a typo will abandon.
+
+3. **Do not break the admin long-press.** `#idle-title` uses an ~800ms press to
+   reach the PIN prompt. `-webkit-touch-callout: none` helps that gesture;
+   `pointer-events: none` or `touch-action: none` on the title would kill it.
+
+4. **`README.md`** — currently four lines. It must document:
+   - the `ij.v1` storage key and the record shapes
+   - how to replace the placeholder `CATALOG` with the real items
+   - how to change `ADMIN_PIN` from the `0000` placeholder
+   - how to change the report's column order (name `printBatch` as the one
+     function to edit)
+   - **the origin constraint, with its consequence**: `localStorage` is
+     origin-scoped, so changing the hostname after the kiosk holds data orphans
+     every enrollment and every unexported sale. State the consequence, not just
+     the rule — this is the most expensive possible deploy mistake.
+
+### Constraints
+
+1. `index.html` is ~1000 lines and works. **ADD to it.** Do not rewrite it.
+2. Do not modify any existing JavaScript function. This task is CSS, the
+   manifest, and docs only.
+3. This is the last build task. Do not start on hosting, Guided Access, or
+   device setup — those are handled separately.
+
+### Done means
+
+`node test-task9.js` → 13/13, and `test-task8.js` (14), `test-fixes.js` (12) and
+`test-storage.js` (17) all still pass. Run all four and paste the real output.
+
+**Commit:** `feat: kiosk touch hardening and README`
