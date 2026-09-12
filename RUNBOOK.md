@@ -28,16 +28,29 @@ git add index.html && git commit -m "chore: set admin PIN" && git push
 
 ### 2. Put in the real items
 
-Still in `index.html`, find `const CATALOG = [`. Replace the eight placeholders
-with what's actually in the fridge and on the shelf. Prices are **integer cents** —
-`$3.50` is `350`, not `3.50`.
+Still in `index.html`, find `const CATALOG = [`. Replace the placeholders with
+what's actually in the fridge and on the shelf.
 
 ```js
-{ id: 'gatorade', name: 'Gatorade', sku: 'gatorade', price: 250 },
+{ group: 'drinks', id: 'gatorade', name: 'Gatorade', sku: 'gatorade', price: 250 },
 ```
 
-`id` and `sku` can be the same word. Keep each `id` unique — the app refuses to
-start on a duplicate, which is deliberate: a duplicate would mis-charge someone.
+Four rules, each of which bites if you get it wrong:
+
+- **Prices are integer cents.** `$3.50` is `350`, never `3.50`.
+- **`group` must be `drinks`, `meal-prep`, or `supplements`** — the ids in
+  `const GROUPS` just above. A typo throws on startup rather than quietly
+  filing the item under no tab, where nobody could sell it.
+- **`id` and `sku` must each be unique** across the whole catalog. They can be
+  the same word as each other. The app refuses to start on a duplicate, which
+  is deliberate: a duplicate would mis-charge someone.
+- **Keep each group's items together in the list.** Tile colours are assigned
+  by position, and that's what stops two neighbours sharing a colour.
+
+Groups become the tabs on the purchase screen, in the order listed in `GROUPS`,
+and the first one opens by default — Drinks, because the fridge outsells
+everything. A group with no items gets no tab, so you can fill in one category
+at a time. The grid scrolls inside its tab; 25 drinks is fine.
 
 Commit and push the same way. **Give Pages ~2 minutes to rebuild** before you
 load it on the iPad.

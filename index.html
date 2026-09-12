@@ -185,6 +185,21 @@
 
   /* ---------- product grid ---------- */
   #catalog-container { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 0 14px; }
+  /* Category tabs. Kiosk-sized targets, and they scroll sideways rather than
+     wrap if the labels ever outgrow the width. */
+  #cat-tabs {
+    display: flex; gap: 10px; margin-bottom: 12px; flex: 0 0 auto;
+    overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+  }
+  #cat-tabs[hidden] { display: none; }
+  .cat-tab {
+    flex: 0 0 auto; min-height: 56px; padding: 0 22px;
+    font-size: 17px; font-weight: 700; white-space: nowrap;
+    border-radius: 12px; border: 2px solid var(--rule);
+    background: var(--card); color: var(--ink-soft);
+  }
+  .cat-tab.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+
   .product-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -415,20 +430,55 @@
 /* ============================================================
  * Task 3 — Product catalog
  *
- * FILL IN: The catalog below contains placeholder items and prices.
- * Replace with the real fridge and shelf contents when known.
- * Prices are integer cents ($3.50 = 350).
+ * Tab order on the purchase screen, first one opens by default. Drinks lead
+ * because the drinks fridge outsells everything else, so the highest-traffic
+ * item is one tap; anything in another category costs two.
+ *
+ * A group with no items has no tab, and if only one group has items the tab
+ * row disappears entirely — so this works with a part-filled catalog.
+ * ============================================================ */
+const GROUPS = [
+  { id: 'drinks',      label: 'Drinks' },
+  { id: 'meal-prep',   label: 'Meal Prep' },
+  { id: 'supplements', label: 'Supplements' }
+];
+
+/* ============================================================
+ * FILL IN: placeholder items and prices. Replace with the real fridge and
+ * shelf contents. Two rules that bite:
+ *
+ *   - Prices are integer CENTS. $3.50 is 350, never 3.50.
+ *   - `group` must be one of the GROUPS ids above. A typo throws on startup
+ *     rather than quietly hiding the item where nobody can sell it.
+ *
+ * `id` and `sku` can be the same word; both must be unique across the whole
+ * catalog. Keep each group's items together in this list — tile colours are
+ * assigned by position, which is what stops two neighbours sharing a colour.
  * ============================================================ */
 const CATALOG = [
-  { id: 'water',         name: 'Bottled Water',      sku: 'water',         price: 150 },
-  { id: 'gatorade',      name: 'Gatorade',           sku: 'gatorade',      price: 250 },
-  { id: 'protein-bar',   name: 'Protein Bar',        sku: 'protein-bar',   price: 300 },
-  { id: 'energy-drink',  name: 'Energy Drink',       sku: 'energy-drink',  price: 350 },
-  { id: 'pre-workout',   name: 'Pre-Workout Scoop',  sku: 'pre-workout',   price: 200 },
-  { id: 'protein-shake', name: 'RTD Protein Shake',  sku: 'protein-shake', price: 450 },
-  { id: 'shaker-cup',    name: 'Shaker Bottle',      sku: 'shaker-cup',    price: 800 },
-  { id: 'lifting-straps',name: 'Lifting Straps',     sku: 'lifting-straps',price: 1200 }
+  { group: 'drinks',      id: 'water',         name: 'Bottled Water',     sku: 'water',         price: 150 },
+  { group: 'drinks',      id: 'gatorade',      name: 'Gatorade',          sku: 'gatorade',      price: 250 },
+  { group: 'drinks',      id: 'energy-drink',  name: 'Energy Drink',      sku: 'energy-drink',  price: 350 },
+  { group: 'drinks',      id: 'protein-shake', name: 'RTD Protein Shake', sku: 'protein-shake', price: 450 },
+
+  { group: 'meal-prep',   id: 'meal-chicken',  name: 'Chicken & Rice',    sku: 'meal-chicken',  price: 900 },
+  { group: 'meal-prep',   id: 'meal-beef',     name: 'Beef & Potato',     sku: 'meal-beef',     price: 950 },
+
+  { group: 'supplements', id: 'protein-bar',   name: 'Protein Bar',       sku: 'protein-bar',   price: 300 },
+  { group: 'supplements', id: 'pre-workout',   name: 'Pre-Workout Scoop', sku: 'pre-workout',   price: 200 },
+  { group: 'supplements', id: 'shaker-cup',    name: 'Shaker Bottle',     sku: 'shaker-cup',    price: 800 },
+  { group: 'supplements', id: 'lifting-straps',name: 'Lifting Straps',    sku: 'lifting-straps',price: 1200 }
 ];
+
+/** Items in one group, in catalog order. */
+function itemsInGroup(groupId) {
+  return CATALOG.filter(item => (item.group || GROUPS[0].id) === groupId);
+}
+
+/** Only the groups that actually have something to sell. */
+function nonEmptyGroups() {
+  return GROUPS.filter(g => itemsInGroup(g.id).length > 0);
+}
 
 /**
  * Validate catalog integrity. Throws loudly on duplicate id, duplicate sku,
@@ -464,6 +514,17 @@ function validateCatalog(catalog) {
     if (typeof item.price !== 'number' || !Number.isInteger(item.price) || item.price < 0) {
       throw new Error(`Catalog item "${item.id}" has invalid price (must be non-negative integer cents): ${item.price}`);
     }
+
+    // `group` is optional — an item without one falls into the first group so
+    // an ungrouped catalog still works. But a group that does not exist is a
+    // typo, and a typo'd item renders under no tab at all: invisible, and
+    // therefore unsellable, with nothing to notice it by. Fail at startup.
+    if (item.group !== undefined) {
+      if (typeof item.group !== 'string' || !GROUPS.some(g => g.id === item.group)) {
+        throw new Error(`Catalog item "${item.id}" has unknown group "${item.group}" ` +
+          `(expected one of: ${GROUPS.map(g => g.id).join(', ')})`);
+      }
+    }
   }
   return true;
 }
@@ -492,6 +553,52 @@ function plateVar(id) {
   let h = 0;
   for (let k = 0; k < id.length; k++) h = (h * 31 + id.charCodeAt(k)) >>> 0;
   return PLATE_VARS[h % PLATE_VARS.length];
+}
+
+/**
+ * Which category tab is open. Reset per member so the next person in line
+ * always starts on Drinks rather than inheriting where the last one browsed.
+ */
+let activeGroup = null;
+
+/**
+ * Render the category tabs and the grid for the open tab.
+ *
+ * 15-25 drinks plus meal preps plus a supplement shelf is well past what one
+ * flat grid can show, and a single long scroll would cost the best-selling
+ * category a scroll instead of a tap. Tabs keep drinks at one tap.
+ */
+function renderCatalog(tabsEl, gridEl, onItemClick) {
+  const groups = nonEmptyGroups();
+  if (groups.length === 0) { gridEl.innerHTML = ''; return; }
+
+  // A tab that is open but no longer has items (catalog edited between
+  // members) must not leave a blank grid.
+  if (!groups.some(g => g.id === activeGroup)) activeGroup = groups[0].id;
+
+  tabsEl.innerHTML = '';
+  // One category needs no tabs — nothing to switch to.
+  tabsEl.hidden = groups.length < 2;
+  if (groups.length > 1) {
+    for (const g of groups) {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'cat-tab' + (g.id === activeGroup ? ' active' : '');
+      tab.dataset.groupId = g.id;
+      tab.textContent = g.label;
+      tab.setAttribute('aria-pressed', g.id === activeGroup ? 'true' : 'false');
+      tab.addEventListener('click', () => {
+        if (activeGroup === g.id) return;
+        activeGroup = g.id;
+        renderCatalog(tabsEl, gridEl, onItemClick);
+        // Back to the top; the previous tab may have been scrolled down.
+        gridEl.scrollTop = 0;
+      });
+      tabsEl.appendChild(tab);
+    }
+  }
+
+  renderProductGrid(gridEl, itemsInGroup(activeGroup), onItemClick);
 }
 
 /**
@@ -661,6 +768,8 @@ function enterLocked(badgeId) {
   state = 'locked';
   currentBadgeId = badgeId;
   currentQty = 1;
+  // Next member in line starts on Drinks, not wherever the last one browsed.
+  activeGroup = null;
   pauseScanner();
   showScreen('locked');
   updateLockedScreen();
@@ -765,6 +874,7 @@ function updateLockedScreen(forceEnroll) {
         <span id="qty-value">1</span>
         <button id="qty-plus" data-rapid aria-label="One more">+</button>
       </div>
+      <div id="cat-tabs"></div>
       <div id="catalog-container"></div>
       <button class="cancel-btn" id="cancel-btn">Cancel</button>
     `;
@@ -775,7 +885,8 @@ function updateLockedScreen(forceEnroll) {
     });
     wireQtyStepper();
     wireCancel();
-    renderProductGrid(document.getElementById('catalog-container'), CATALOG, onProductTap);
+    renderCatalog(document.getElementById('cat-tabs'),
+                  document.getElementById('catalog-container'), onProductTap);
   } else {
     // forceEnroll on a card we already know is a REBIND, not a first
     // enrollment. Showing "First time — we only ask once" to someone whose card

@@ -98,7 +98,11 @@ check('product buttons are enabled once a member is locked in', () => {
   input.dispatchEvent(new w.Event('input'));
   w.document.getElementById('enroll-btn').click();
   const btns = w.document.querySelectorAll('.product-btn');
-  assert.strictEqual(btns.length, 8, 'grid should render');
+  // The open tab's items, not the whole catalog — derived from the data so
+  // this keeps holding when the real fridge list lands.
+  const openGroup = w.nonEmptyGroups()[0].id;
+  assert.strictEqual(btns.length, w.itemsInGroup(openGroup).length, 'grid should render');
+  assert.ok(btns.length > 0, 'the open tab must render something');
   assert.strictEqual(btns[0].disabled, false,
     'buttons must be clickable while locked — hardcoding disabled=true killed the kiosk');
 });
@@ -603,6 +607,98 @@ check('the scanner canvas cannot make #reader scrollable', () => {
   const ctx = canvas.getContext('2d');
   assert.ok(ctx === null || typeof ctx.drawImage === 'function',
     'a hidden canvas must still yield a working 2D context');
+});
+
+/* ---- 21. category tabs ---- */
+function toPurchase(w, badge, name) {
+  w.onScanSuccess(badge);
+  const input = w.document.getElementById('name-input');
+  input.value = name;
+  input.dispatchEvent(new w.Event('input'));
+  w.document.getElementById('enroll-btn').click();
+}
+
+check('the purchase screen opens on the first group with a tab per group', () => {
+  const w = boot().window;
+  toPurchase(w, 'IJG18350', 'Tabs');
+  const tabs = [...w.document.querySelectorAll('.cat-tab')];
+  const groups = w.nonEmptyGroups();
+  assert.strictEqual(tabs.length, groups.length, 'one tab per non-empty group');
+  assert.strictEqual(tabs[0].dataset.groupId, groups[0].id, 'first group is first');
+  assert.ok(tabs[0].classList.contains('active'), 'and it opens active');
+  assert.strictEqual(tabs[0].getAttribute('aria-pressed'), 'true');
+  // Drinks lead deliberately: the fridge outsells everything else, so the
+  // busiest category must cost one tap.
+  assert.strictEqual(groups[0].id, 'drinks');
+});
+
+check('tapping a tab swaps the grid to that group', () => {
+  const w = boot().window;
+  toPurchase(w, 'IJG18351', 'Switcher');
+  const tabs = [...w.document.querySelectorAll('.cat-tab')];
+  const second = tabs[1];
+  const targetGroup = second.dataset.groupId;
+  second.click();
+
+  const names = [...w.document.querySelectorAll('.product-btn')]
+    .map(b => b.dataset.productId).sort();
+  // Spread back into this realm: an array built inside jsdom has a different
+  // Array prototype, and deepStrictEqual compares prototypes, so identical
+  // contents otherwise fail.
+  const expected = [...w.itemsInGroup(targetGroup).map(i => i.id).sort()];
+  assert.deepStrictEqual(names, expected, 'grid shows exactly that group');
+  assert.ok(w.document.querySelector('.cat-tab[data-group-id="' + targetGroup + '"]')
+    .classList.contains('active'), 'the tapped tab is the active one');
+  assert.strictEqual(
+    w.document.querySelectorAll('.cat-tab.active').length, 1, 'exactly one active tab');
+});
+
+check('a sale from a non-default tab records that item, at its own price', () => {
+  const w = boot().window;
+  toPurchase(w, 'IJG18352', 'Buyer');
+  const tabs = [...w.document.querySelectorAll('.cat-tab')];
+  tabs[tabs.length - 1].click(); // the last group
+  const btn = w.document.querySelectorAll('.product-btn')[0];
+  const wantedId = btn.dataset.productId;
+  const wanted = w.itemsInGroup(tabs[tabs.length - 1].dataset.groupId)
+    .find(i => i.id === wantedId);
+  btn.click();
+
+  const sales = w.loadState().sales;
+  assert.strictEqual(sales.length, 1);
+  assert.strictEqual(sales[0].productId, wantedId, 'the tapped item is the one sold');
+  assert.strictEqual(sales[0].price, wanted.price, 'at the price from its own group');
+});
+
+check('the next member starts on the first tab, not where the last one browsed', () => {
+  const w = boot().window;
+  toPurchase(w, 'IJG18353', 'First');
+  w.document.querySelectorAll('.cat-tab')[1].click();
+  assert.strictEqual(w.document.querySelectorAll('.cat-tab')[1].classList.contains('active'),
+    true, 'moved off the first tab');
+
+  // Lock in again — an already-enrolled badge, so it lands on the grid rather
+  // than the name prompt. enterLocked directly because onScanSuccess is
+  // deliberately deaf for 3s after a purchase and scanLockoutUntil is a `let`,
+  // so it cannot be reset from out here.
+  w.returnToIdle();
+  w.enterLocked('IJG18353');
+  const tabs = [...w.document.querySelectorAll('.cat-tab')];
+  assert.ok(tabs.length > 0, 'the purchase screen re-rendered on lock-in');
+  assert.ok(tabs[0].classList.contains('active'),
+    'a fresh member must open on the first tab');
+});
+
+check('an unknown group in the catalog throws instead of hiding the item', () => {
+  const w = boot().window;
+  // A typo'd group would render under no tab at all: invisible, unsellable,
+  // and nothing to notice it by.
+  assert.throws(
+    () => w.validateCatalog([{ group: 'drnks', id: 'a', name: 'A', sku: 'a', price: 100 }]),
+    /unknown group/i);
+  // No group at all is allowed — it falls into the first group.
+  assert.strictEqual(
+    w.validateCatalog([{ id: 'a', name: 'A', sku: 'a', price: 100 }]), true);
 });
 
 Promise.all(pending).then(() => {
