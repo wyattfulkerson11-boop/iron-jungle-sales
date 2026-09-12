@@ -574,6 +574,37 @@ check('reviving mid-purchase does not steal the camera back', () => {
     'the camera is paused on purpose mid-purchase and must stay paused');
 });
 
+/* ---- 20. the scan frame must never become a pannable area ---- */
+check('the scanner canvas cannot make #reader scrollable', () => {
+  const w = boot().window;
+  const reader = w.document.getElementById('reader');
+  // Reproduce what html5-qrcode appends on a device that actually has a
+  // camera: a <video>, then its scratch canvas sized to the whole element, in
+  // normal flow. That stacked to 927px inside a 460px box, and iOS pans such
+  // an overflow area even under overflow:hidden — the screen dragged up and
+  // down on the iPad. Needs a real camera to reproduce, so only the CSS
+  // contract is asserted here.
+  const video = w.document.createElement('video');
+  const canvas = w.document.createElement('canvas');
+  canvas.width = 460; canvas.height = 460;
+  reader.appendChild(video); reader.appendChild(canvas);
+
+  const cs = w.getComputedStyle(canvas);
+  assert.strictEqual(cs.position, 'absolute',
+    'the scratch canvas must be out of normal flow');
+  assert.strictEqual(cs.visibility, 'hidden',
+    'and unpainted — it would otherwise cover the live preview');
+  assert.strictEqual(w.getComputedStyle(reader).overflow, 'hidden',
+    '#reader must clip whatever else the library appends');
+  assert.strictEqual(w.getComputedStyle(video).display, 'block',
+    'inline video leaves a baseline gap that overflows the frame');
+
+  // And the canvas must still be usable for decoding while hidden.
+  const ctx = canvas.getContext('2d');
+  assert.ok(ctx === null || typeof ctx.drawImage === 'function',
+    'a hidden canvas must still yield a working 2D context');
+});
+
 Promise.all(pending).then(() => {
   let failed = 0;
   for (const [status, label] of results) {

@@ -118,8 +118,20 @@
   #reader { width: 100%; height: 100%; }
   /* pointer-events: none — nothing on the video is interactive, and a <video>
      is the one element iOS reserves its own double-tap behaviour for. */
+  /* display:block — a <video> is inline-level, and its baseline gap left 4px
+     of overflow behind even after the canvas was taken out of flow. */
   #reader video { width: 100% !important; height: 100% !important; object-fit: cover;
-                  pointer-events: none; }
+                  pointer-events: none; display: block; }
+  /* html5-qrcode appends its scratch canvas AFTER the <video>, in normal flow,
+     and with no qrbox it sizes that canvas to the whole element. So #reader
+     held 460px of video plus 460px of canvas — 927px of content in a 460px
+     box — and iOS pans an overflow area like that even under overflow:hidden.
+     That was the screen dragging up and down. The canvas is a decode surface
+     and was never meant to be seen: take it out of flow and stop painting it.
+     A 2D context keeps working either way. overflow:hidden on #reader too, so
+     anything else the library appends cannot recreate a pannable area. */
+  #reader { overflow: hidden; }
+  #reader canvas { position: absolute; top: 0; left: 0; visibility: hidden; }
   .scan-frame span {
     position: absolute; width: 34px; height: 34px; pointer-events: none;
     border: 4px solid var(--card); border-radius: 4px;
