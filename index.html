@@ -101,7 +101,10 @@
     overflow: hidden;
   }
   #reader { width: 100%; height: 100%; }
-  #reader video { width: 100% !important; height: 100% !important; object-fit: cover; }
+  /* pointer-events: none — nothing on the video is interactive, and a <video>
+     is the one element iOS reserves its own double-tap behaviour for. */
+  #reader video { width: 100% !important; height: 100% !important; object-fit: cover;
+                  pointer-events: none; }
   .scan-frame span {
     position: absolute; width: 34px; height: 34px; pointer-events: none;
     border: 4px solid var(--card); border-radius: 4px;
@@ -1103,6 +1106,41 @@ function wireAdminEntry() {
   title.addEventListener('mouseleave', cancel);
 }
 wireAdminEntry();
+
+/**
+ * Kiosk gesture hardening.
+ *
+ * iOS deliberately ignores `user-scalable=no` and `maximum-scale` for
+ * accessibility, and `touch-action: manipulation` does not reliably suppress
+ * Safari's double-tap smart zoom in a standalone home-screen app — verified on
+ * the real iPad, where a fast double-tap still lifted the page and exposed the
+ * #111 app shell underneath. CSS cannot hold the visual viewport down, so
+ * cancel the second tap of a double-tap ourselves.
+ *
+ * Deliberately scoped to NON-controls: preventDefault on touchend also cancels
+ * that tap's click, and members do tap "+" twice quickly on the qty stepper.
+ * The scan screen — where this gesture actually happens — has no controls at
+ * all, so nothing real is lost. The admin long-press is unaffected; it runs off
+ * touchstart/touchend listeners, which still fire.
+ */
+function wireKioskGestures() {
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    const onControl = e.target && e.target.closest &&
+      e.target.closest('button, input, a, [role="button"]');
+    if (!onControl && now - lastTouchEnd <= 350) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
+
+  // Pinch zoom fires gesture* on iOS. A zoomed kiosk is a stuck kiosk — the
+  // member cannot undo it and the next person inherits it. Tap targets are
+  // 88px and the type is large precisely so nobody needs to zoom.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((type) => {
+    document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+  });
+}
+wireKioskGestures();
 
 /* ============================================================
  * Scanner Integration (Task 1 + 4)

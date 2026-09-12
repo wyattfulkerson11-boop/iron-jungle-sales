@@ -267,7 +267,32 @@ check('real html5-qrcode accepts the scanner config and reaches getUserMedia', (
   }));
 });
 
-/* ---- 11. rebinding a known card tells the truth and is escapable ---- */
+/* ---- 11. double-tap zoom is cancelled, but fast taps on controls are not ---- */
+check('a fast double-tap is cancelled off-control and allowed on controls', () => {
+  const w = boot().window;
+  const tap = (el) => {
+    const e = new w.Event('touchend', { bubbles: true, cancelable: true });
+    el.dispatchEvent(e);
+    return e.defaultPrevented;
+  };
+  // Off-control (the scan screen has no controls at all) — second tap cancelled.
+  const title = w.document.getElementById('idle-title');
+  assert.strictEqual(tap(title), false, 'first tap must pass through');
+  assert.strictEqual(tap(title), true, 'a fast second tap off-control is cancelled');
+
+  // On a real control, BOTH taps must survive — members tap "+" twice quickly
+  // and preventDefault on touchend would eat the second click.
+  enrollAndBuy(w, 'IJG18309', 'Stepper', 0);
+  w.onScanSuccess('IJG18309');
+  const plus = w.document.getElementById('qty-plus');
+  assert.strictEqual(tap(plus), false, 'first tap on a control');
+  assert.strictEqual(tap(plus), false, 'fast second tap on a control must NOT be cancelled');
+  plus.click(); plus.click();
+  assert.strictEqual(w.document.getElementById('qty-value').textContent.trim(), '3',
+    'two quick taps on + must both count');
+});
+
+/* ---- 12. rebinding a known card tells the truth and is escapable ---- */
 check('"Not you?" does not silently overwrite the member who owns the card', () => {
   const w = boot().window;
   enrollAndBuy(w, 'IJG18308', 'Wyatt F.', 0);
@@ -291,7 +316,7 @@ check('"Not you?" does not silently overwrite the member who owns the card', () 
     'a mis-tap must leave the stored member untouched');
 });
 
-/* ---- 12. implausible barcode reads are ignored ---- */
+/* ---- 13. implausible barcode reads are ignored ---- */
 check('a misread barcode cannot become a badge ID', () => {
   const w = boot().window;
   const n = w.normalizeBadgeId;
