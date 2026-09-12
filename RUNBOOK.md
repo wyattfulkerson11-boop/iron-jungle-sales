@@ -108,6 +108,10 @@ Do all of these yourself, at the counter, with the stand where it will live.
 | 9 | **Scan your barcode off your phone screen** | This is the one most likely to fail — see below |
 | 10 | Force-close the app and reopen | Your test sales are still there |
 
+**Aim along the width.** The reader decodes a wide strip across the middle of
+the frame. Hold the keytag level and let it fill the frame side to side; the
+corner brackets mark the frame, not the read zone.
+
 **On #9:** phone-screen barcodes are the known weak point — glare, brightness,
 and cracked screens all hurt. Try it at the angle the stand actually sits, with
 the gym's real lighting. If it struggles, turn the phone's brightness up and tilt
@@ -150,7 +154,8 @@ Processed batches stay visible for 30 days, so you can reprint one if needed.
 |---|---|
 | Camera unavailable | Settings → Safari → Camera → Allow, then reopen |
 | Screen frozen | Triple-click side button, exit Guided Access, reopen from home screen |
-| Scanner won't read a card | Try the physical card instead of the phone; check the lens isn't smudged |
+| Scanner won't read a card | Hold it **level and centered, filling the frame's width** — the reader looks at a wide strip across the middle, not the corners. Then try the physical card instead of the phone; check the lens isn't smudged |
+| Camera unavailable + a message in brackets | That bracketed text is the real reason. Send it to me — it is not always a permission problem |
 | "Could not save that sale" | Storage is full — pull a batch, confirm it, then clear old data |
 | Someone's name is wrong | Scan their badge → **Not [name]?** → retype |
 

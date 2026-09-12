@@ -542,6 +542,25 @@ let scanLockoutUntil = 0;
 
 // Lockout duration for secondary guard (ms)
 const LOCKOUT_MS = 3000;
+/**
+ * Shape of a real gym keytag, e.g. "IJG18399". Code 39 carries no check digit,
+ * so a partial or smudged read can decode to a plausible-but-wrong ID — and a
+ * wrong ID that happens to match another member bills that member. Anything
+ * that doesn't look like a card is ignored, exactly as if it never decoded.
+ * CALIBRATION KNOB: loosen this if the gym issues a different card format.
+ */
+const BADGE_RE = /^[A-Z0-9][A-Z0-9-]{3,31}$/;
+
+/**
+ * Normalize a decoded barcode to a badge ID, or return null if it isn't one.
+ * Code 39 is uppercase-only and some readers include the `*` start/stop
+ * delimiters, so strip those before matching.
+ */
+function normalizeBadgeId(decodedText) {
+  if (typeof decodedText !== 'string') return null;
+  const clean = decodedText.trim().toUpperCase().replace(/^\*+|\*+$/g, '');
+  return BADGE_RE.test(clean) ? clean : null;
+}
 const MAX_QTY = 10;
 
 /**
@@ -1068,7 +1087,19 @@ wireAdminEntry();
 function startScanner() {
   if (scannerInstance) return;
   try {
-    scannerInstance = new Html5Qrcode("reader");
+    // formatsToSupport is read by the CONSTRUCTOR only — the library ignores it
+    // in start()'s config. Gym keytags are Code 39 ("IJG18399"); Code 128 is
+    // here because the same alphanumeric payload is sometimes encoded that way.
+    // CALIBRATION KNOB: if a member's card won't read, add its format here, not
+    // in start(). Deliberately NOT enabling ITF/UPC/EAN — no gym card uses them
+    // and ITF happily decodes part of a symbol as a valid shorter code, which
+    // would hand us a plausible wrong badge ID.
+    scannerInstance = new Html5Qrcode("reader", {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_128
+      ]
+    });
   } catch (e) {
     // Thrown synchronously when the #reader element is missing.
     console.error('Failed to construct scanner:', e);
@@ -1078,38 +1109,52 @@ function startScanner() {
   // start() is async — a denied or missing camera rejects the promise and is
   // NOT catchable by a try/catch around this call.
   scannerInstance.start(
-    // Ask for 1080p. More pixels per bar means the tag decodes from a foot
-    // away instead of two inches — the rear iPad camera cannot focus that close.
-    { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+    // MUST be exactly one key. The library rejects any other shape with
+    // "'cameraIdOrConfig' object should have exactly 1 key" — resolution hints
+    // belong in videoConstraints below, not here.
+    { facingMode: "environment" },
     {
       fps: 10,
-      // CALIBRATION KNOB. Gym keytags are Code 39/Code 128: a wide, short
-      // strip. A square box crops the start/stop bars out of frame and nothing
-      // decodes, ever. Widen/shorten these fractions if scanning is finicky
-      // under the gym's real lighting.
+      // CALIBRATION KNOB. Gym keytags are a wide, short strip; a square box
+      // crops the start/stop bars out of frame and nothing decodes, ever.
+      //
+      // The vertical fraction is deliberately generous. The library maps this
+      // region to source pixels with videoWidth/clientWidth per axis, i.e. it
+      // assumes the video is STRETCHED to fill #reader — but our CSS forces
+      // object-fit: cover, which crops instead. With a 16:9 stream in a square
+      // frame that mismatch means a short box decodes only the middle slice of
+      // what the member can actually see, so a card held high or low in the
+      // corner brackets looks aimed and silently never reads.
+      //
+      // Both dimensions must stay >= 50px or start() throws.
       qrbox: function (vw, vh) {
         return {
-          width: Math.floor(vw * 0.9),
-          height: Math.floor(Math.min(vh * 0.5, 260))
+          width: Math.max(50, Math.floor(vw * 0.9)),
+          height: Math.max(50, Math.floor(vh * 0.8))
         };
       },
-      // Only the formats gym cards actually use. Every extra format is another
-      // decoder pass per frame, which costs scan speed on the iPad.
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODABAR,
-        Html5QrcodeSupportedFormats.ITF,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.QR_CODE
-      ]
+      // 720p, not 1080p. Because the region above is now large, 1080p would put
+      // ~1.5MP through the decoder ten times a second and throttle an iPad on a
+      // gym shift; 720p across a generous region costs about the same as the old
+      // 250px square while actually covering the barcode, and still leaves ~1150
+      // source pixels across the strip — plenty for Code 39's narrow bars.
+      // When present this replaces cameraIdOrConfig for getUserMedia, so it has
+      // to carry facingMode itself.
+      videoConstraints: {
+        facingMode: "environment",
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
     },
     onScanSuccess,
     onScanError
   ).catch(e => {
     console.error('Failed to start camera:', e);
-    showScannerError('Camera unavailable. Check camera permission in Settings, then reload.');
+    // Name the reason. A config error and a denied permission are both "camera
+    // unavailable" from the counter, and sending a worker into Settings for a
+    // config bug wasted a gym visit once already.
+    showScannerError('Camera unavailable (' + String(e && e.message || e).slice(0, 60) +
+      '). Check camera permission in Settings, then reload.');
   });
 }
 
@@ -1137,17 +1182,26 @@ function onScanSuccess(decodedText) {
   // re-trigger when the camera resumes after the previous sale.
   if (Date.now() < scanLockoutUntil) return;
 
+  // Reject anything that isn't shaped like a gym card BEFORE pausing the
+  // camera — a garbage read must look like no read at all, not stall the kiosk.
+  const badgeId = normalizeBadgeId(decodedText);
+  if (!badgeId) {
+    console.warn('Ignoring implausible badge read:', decodedText);
+    return;
+  }
+
   // Pause camera immediately (primary fix)
   pauseScanner();
 
-  // Store badge ID and enter locked state
-  currentBadgeId = decodedText.trim();
+  currentBadgeId = badgeId;
   enterLocked(currentBadgeId);
 }
 
-function onScanError(error) {
-  // Ignore scan errors; we just want to keep scanning
-  console.warn('Scan error:', error);
+function onScanError() {
+  // Called for EVERY frame that fails to decode — ~10/sec, all day, while the
+  // kiosk sits idle with nothing in front of the lens. Logging here grew the
+  // console buffer without bound on a device nobody can open a console on.
+  // Intentionally empty: a frame that doesn't decode is not an error.
 }
 
 function showScannerError(message) {
