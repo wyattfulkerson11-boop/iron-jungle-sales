@@ -101,7 +101,7 @@
 <body>
 
 <div id="idle" class="screen">
-  <h2 class="idle-title">Scan your gym barcode</h2>
+  <h2 class="idle-title" id="idle-title">Scan your gym barcode</h2>
   <div id="reader"></div>
   <p id="scanner-error" class="error" hidden></p>
 </div>
@@ -117,39 +117,9 @@
   <div id='admin-batches'></div>
   <hr>
   <button onclick='doCreateBatch()'>Create New Batch</button>
+  <hr>
+  <button onclick='doClearData()'>Clear all data</button>
 </div>
-<script>
-  function doCreateBatch() {
-    if (createBatch()) {
-      alert('Batch created.');
-      renderAdmin();
-    } else {
-      alert('No sales to batch.');
-    }
-  }
-  
-  function doConfirmBatch(id) {
-    if (confirmBatch(id)) {
-      alert('Batch marked processed.');
-      renderAdmin();
-    } else {
-      alert('Failed.');
-    }
-  }
-
-  function renderAdmin() {
-    const s = loadState();
-    const container = document.getElementById('admin-batches');
-    container.innerHTML = '<h3>Pending Batches</h3>' + 
-      s.batches.filter(b => b.status === 'pending').map(b => `
-        <div style='padding:10px; border:1px solid #444; margin:5px 0;'>
-          Batch ${b.id.slice(0,8)} (${b.saleIds.length} sales)
-          <button onclick='printBatch("${b.id}")'>Print</button>
-          <button onclick='doConfirmBatch("${b.id}")'>Confirm Keyed</button>
-        </div>
-      `).join('');
-  }
-</script>
 <div id="print-container" style="display: none;"></div>
 
 <script>
@@ -614,11 +584,14 @@ function printBatch(batchId) {
   }, {});
 
   const members = Object.keys(grouped).sort();
-  
+  const lineCount = batchSales.length;
+  const totalCents = batchSales.reduce((sum, s) => sum + s.price * s.qty, 0);
+
   const container = document.getElementById('print-container');
   container.innerHTML = `
     <h2>Batch: ${batchId}</h2>
-    <p>Created: ${batch.createdAt}</p>
+    <p>Created: ${new Date(batch.createdAt).toLocaleString()}</p>
+    <p>Line count: ${lineCount}</p>
     <table>
       <thead>
         <tr><th>Member</th><th>Item</th><th>Qty</th><th>Price</th><th>Time</th></tr>
@@ -630,11 +603,12 @@ function printBatch(batchId) {
             <td>${escapeHtml(s.productName)}</td>
             <td>${s.qty}</td>
             <td>${formatPrice(s.price * s.qty)}</td>
-            <td>${s.at}</td>
+            <td>${new Date(s.at).toLocaleTimeString()}</td>
           </tr>
         `).join('')).join('')}
       </tbody>
     </table>
+    <p class="batch-total">Total: ${formatPrice(totalCents)}</p>
   `;
   window.print();
 }
@@ -643,10 +617,172 @@ function confirmBatch(batchId) {
   const state = loadState();
   const batch = state.batches.find(b => b.id === batchId);
   if (!batch) return false;
+  // Refuse to re-confirm an already-processed batch. A second call must not
+  // overwrite processedAt (that would silently move a confirmed batch's
+  // timestamp and could re-key an export that was already entered).
+  if (batch.status === 'processed') return false;
   batch.status = 'processed';
   batch.processedAt = new Date().toISOString();
   return saveState(state);
 }
+
+/* ============================================================
+ * Task 8 — PIN-gated admin + the three Task 7 report gaps
+ * ============================================================ */
+
+// FILL IN: placeholder admin PIN. Change to the real PIN before the iPad goes
+// on the counter.
+var ADMIN_PIN = '0000';
+
+let adminAttempts = 0;
+let adminLockoutUntil = 0;
+const ADMIN_MAX_ATTEMPTS = 3;
+const ADMIN_LOCKOUT_MS = 30 * 1000;
+
+function tryAdminUnlock(pin) {
+  if (adminLockoutRemainingMs() > 0) return false;
+  if (pin === ADMIN_PIN) {
+    resetAdminLockout();
+    return true;
+  }
+  adminAttempts++;
+  if (adminAttempts >= ADMIN_MAX_ATTEMPTS) {
+    adminLockoutUntil = Date.now() + ADMIN_LOCKOUT_MS;
+  }
+  return false;
+}
+
+function adminLockoutRemainingMs() {
+  const remaining = adminLockoutUntil - Date.now();
+  return remaining > 0 ? remaining : 0;
+}
+
+function resetAdminLockout() {
+  adminAttempts = 0;
+  adminLockoutUntil = 0;
+}
+
+function pendingSaleCount() {
+  const state = loadState();
+  return state.sales.filter(s => s.batchId === null).length;
+}
+
+function listAdminBatches() {
+  const state = loadState();
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const pending = state.batches.filter(b => b.status === 'pending');
+  const processed = state.batches.filter(b => {
+    if (b.status !== 'processed') return false;
+    const at = b.processedAt ? new Date(b.processedAt).getTime() : 0;
+    return at >= cutoff;
+  });
+  return pending.concat(processed);
+}
+
+function clearAllData(confirmText) {
+  const state = loadState();
+  if (state.batches.some(b => b.status === 'pending')) {
+    return { ok: false, reason: 'pending' };
+  }
+  if (confirmText !== 'CLEAR') {
+    return { ok: false, reason: 'confirm' };
+  }
+  state.sales = [];
+  state.batches = [];
+  state.members = {};
+  return saveState(state) ? { ok: true } : { ok: false, reason: 'save' };
+}
+
+function doCreateBatch() {
+  if (createBatch()) {
+    alert('Batch created.');
+    renderAdmin();
+  } else {
+    alert('No sales to batch.');
+  }
+}
+
+function doConfirmBatch(id) {
+  if (confirmBatch(id)) {
+    alert('Batch marked processed.');
+    renderAdmin();
+  } else {
+    alert('Already processed, or not found.');
+  }
+}
+
+function renderAdmin() {
+  const container = document.getElementById('admin-batches');
+  const batches = listAdminBatches();
+  const corruptNote = corrupted
+    ? '<p style="color:#ff6b6b;">Warning: storage was quarantined as corrupt at last load.</p>'
+    : '';
+  container.innerHTML = '<h3>Batches</h3>' + corruptNote + batches.map(b => {
+    const statusLabel = b.status === 'pending' ? 'Pending' : 'Processed';
+    const confirmBtn = b.status === 'pending'
+      ? `<button onclick='doConfirmBatch("${b.id}")'>Confirm Keyed</button>`
+      : '';
+    return `
+      <div style='padding:10px; border:1px solid #444; margin:5px 0;'>
+        Batch ${b.id.slice(0, 8)} (${b.saleIds.length} sales) — ${statusLabel}
+        <button onclick='printBatch("${b.id}")'>Print</button>
+        ${confirmBtn}
+      </div>
+    `;
+  }).join('');
+}
+
+function doClearData() {
+  const count = pendingSaleCount();
+  const r = clearAllData(prompt(
+    'This will permanently delete ' + count +
+    ' unexported sale(s), all members and all sales. Type CLEAR to confirm.'
+  ));
+  if (!r.ok) {
+    alert(r.reason === 'pending'
+      ? 'Cannot clear while a batch is pending. Confirm it first.'
+      : 'Clear cancelled — you must type CLEAR exactly.');
+    return;
+  }
+  alert('All data cleared.');
+  renderAdmin();
+}
+
+function showAdminPinPrompt() {
+  const pin = prompt('Admin PIN:');
+  if (pin === null) return;
+  if (tryAdminUnlock(pin)) {
+    renderAdmin();
+    showScreen('admin');
+  } else {
+    const remaining = adminLockoutRemainingMs();
+    alert(remaining > 0
+      ? 'Locked out for ' + Math.ceil(remaining / 1000) + 's.'
+      : 'Incorrect PIN.');
+  }
+}
+
+// Long-press (~800ms) the idle title is the ONLY route into the admin screen.
+// Hiding the screen is not gating it — the pin check above is.
+function wireAdminEntry() {
+  const title = document.getElementById('idle-title');
+  if (!title) return;
+  let pressTimer = null;
+  const start = () => {
+    if (pressTimer) clearTimeout(pressTimer);
+    pressTimer = setTimeout(showAdminPinPrompt, 800);
+  };
+  const cancel = () => {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+  };
+  title.addEventListener('touchstart', start);
+  title.addEventListener('touchend', cancel);
+  title.addEventListener('touchcancel', cancel);
+  title.addEventListener('mousedown', start);
+  title.addEventListener('mouseup', cancel);
+  title.addEventListener('mouseleave', cancel);
+}
+wireAdminEntry();
 
 /* ============================================================
  * Scanner Integration (Task 1 + 4)
