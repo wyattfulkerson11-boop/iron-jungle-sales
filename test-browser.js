@@ -54,6 +54,25 @@ function enrollAndBuy(w, badge, name, productIndex) {
   return btns;
 }
 
+/* ---- 0. the page is not blank on load ---- */
+check('the idle screen is visible on a fresh load', () => {
+  const w = boot().window;
+  const active = [...w.document.querySelectorAll('.screen')]
+    .filter(e => e.classList.contains('active')).map(e => e.id);
+  assert.deepStrictEqual(active, ['idle'],
+    'exactly the idle screen must be active — every other test drives a ' +
+    'transition by hand, so none of them notice a blank startup');
+  assert.ok(/Scan your gym barcode/.test(w.document.body.textContent),
+    'the prompt must be readable');
+});
+
+check('no stray text leaks outside the app markup', () => {
+  const w = boot().window;
+  // A botched edit once appended `', path:` after </html>, which renders.
+  const visible = w.document.body.innerText || w.document.body.textContent;
+  assert.ok(!/',\s*path:/.test(visible), 'found leaked source fragment');
+});
+
 /* ---- 1. a product button is actually clickable ---- */
 check('product buttons are enabled once a member is locked in', () => {
   const w = boot().window;

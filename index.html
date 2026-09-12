@@ -1047,6 +1047,18 @@ if (typeof window !== 'undefined' && window.location
     && /[?&]selftest=1\b/.test(window.location.search)) {
   console.log('Self-checks:', runSelfChecks());
 }
+
+/* ============================================================
+ * Startup
+ *
+ * This must be explicit. The app previously booted only by accident: the
+ * self-checks auto-ran on load and demoScanner() called returnToIdle(), which
+ * happened to show the idle screen. Removing that auto-run left every .screen
+ * hidden and the page blank.
+ * ============================================================ */
+if (typeof window !== 'undefined' && window.document) {
+  enterIdle();
+}
 </script>
 </body>
-</html>', path:
+</html>
