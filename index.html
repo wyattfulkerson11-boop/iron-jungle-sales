@@ -102,8 +102,11 @@ document.getElementById('qty-dec').onclick = () => { if (qty > 1) qty--; documen
 document.getElementById('cancel-btn').onclick = () => setState('idle');
 CATALOG.forEach(p => { const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = p.name; btn.onclick = () => recordSale(p); document.getElementById('catalog-container').appendChild(btn); });
 const scanner = new Html5Qrcode("reader");
-scanner.start({ facingMode: "user" }, { fps: 10 }, onScanSuccess);
-
+scanner.start({ facingMode: "user" }, { fps: 10 }, onScanSuccess)
+  .catch(err => {
+    document.getElementById('reader').innerHTML = '<p style="padding:20px;">Camera access required.</p>';
+  });
+</script>
 </script>
 </body>
 </html>
