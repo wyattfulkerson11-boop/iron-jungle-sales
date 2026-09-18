@@ -356,6 +356,9 @@
     border-radius: 12px; border: 2px solid var(--rule);
     background: var(--card); color: var(--ink);
   }
+  /* The waiting age past the loss window. Red is the only colour on this
+     screen that means "money", and it means money not yet banked. */
+  .age-warn { color: var(--danger); font-weight: 700; }
   .btn-sm.solid { background: var(--ink); color: #fff; border-color: var(--ink); }
   /* Admin-only destructive-in-place control: the Void button on a Pending
      batch's lines and on a waiting sale. Outlined, not filled — it sits next
@@ -471,6 +474,7 @@
   <div class="admin-foot">
     <button class="btn-primary" id="create-batch-btn" onclick='doCreateBatch()'>Create batch</button>
     <span class="batch-meta" id="waiting-note"></span>
+    <span class="batch-meta age" id="waiting-age"></span>
     <span class="spacer" style="flex:1"></span>
     <span class="batch-meta" id="admin-status"></span>
     <button class="btn-danger" onclick='doClearData()'>Clear all data</button>
@@ -1947,7 +1951,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-18.5';
+var BUILD = '2026-09-18.6';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;
@@ -1986,6 +1990,30 @@ function pendingSaleCount() {
 /** The unbatched, non-voided sales — what "Waiting" in admin actually lists. */
 function waitingSales() {
   return loadState().sales.filter(s => s.batchId === null && !s.voidedAt);
+}
+
+/* The loss window: sales sitting on the iPad are sales the gym has not been
+ * paid for yet. Six hours is a shift — a sale rung up at open and still waiting
+ * when the afternoon crowd arrives is one nobody has keyed in. */
+const AGE_WARN_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * How long the oldest sale that is still waiting has been waiting, in ms, or
+ * null when nothing is waiting. Voided sales are not waiting for anything, and
+ * batched ones have been pulled: neither is part of the loss window.
+ */
+function oldestWaitingMs() {
+  const waiting = waitingSales();
+  if (waiting.length === 0) return null;
+  const oldest = waiting.reduce((a, s) => (a.at <= s.at ? a : s));
+  return Date.now() - new Date(oldest.at).getTime();
+}
+
+/** "7h 12m" / "45m" — an age a human reads at a glance, never a timestamp. */
+function humanAge(ms) {
+  const minutes = Math.max(0, Math.floor(ms / 60000));
+  if (minutes < 60) return minutes + 'm';
+  return Math.floor(minutes / 60) + 'h ' + (minutes % 60) + 'm';
 }
 
 function listAdminBatches() {
@@ -2106,6 +2134,21 @@ function renderAdmin() {
   // proves nothing while a service worker sits in front of the network.
   const statusEl = document.getElementById('admin-status');
   if (statusEl) statusEl.textContent = 'build ' + BUILD;
+
+  // The loss window, in the one place someone looks before deciding whether to
+  // pull a batch. Past 6 h it is red: that is a sale nobody has keyed in.
+  const ageEl = document.getElementById('waiting-age');
+  if (ageEl) {
+    const age = oldestWaitingMs();
+    if (age === null) {
+      ageEl.textContent = '';
+      ageEl.classList.remove('age-warn');
+    } else {
+      const overdue = age >= AGE_WARN_MS;
+      ageEl.textContent = 'oldest waiting ' + humanAge(age) + (overdue ? ' — key it in' : '');
+      if (overdue) ageEl.classList.add('age-warn'); else ageEl.classList.remove('age-warn');
+    }
+  }
 }
 
 function doClearData() {

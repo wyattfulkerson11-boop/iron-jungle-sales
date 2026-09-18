@@ -11,20 +11,25 @@ Total: about 15 minutes at home, 20 at the counter.
 
 ### 1. Change the admin PIN ← do this first
 
-The repo is public, so `0000` is readable by anyone. It only gates the admin
-screen on the physical iPad, but change it anyway.
+The repo is public, so the placeholder PIN that ships in `index.html` is readable
+by anyone. It only gates the admin screen on the physical iPad, but change it
+anyway.
 
 In `index.html`, find:
 
 ```js
-const ADMIN_PIN = '0000';
+var ADMIN_PIN = '<the placeholder>';   // exactly one place sets this
 ```
 
-Pick something you'll remember and that isn't a date. Then:
+Replace the string with your own PIN. Never commit the real one.
 
 ```bash
 git add index.html && git commit -m "chore: set admin PIN" && git push
 ```
+
+**Don't write the real PIN down anywhere in this repo** — not in this runbook,
+not in the README, not in a commit message. The repository is public, and the
+PIN is the only thing between a member and the Clear-all-data button.
 
 ### 2. Put in the real items
 
@@ -112,15 +117,20 @@ Do all of these yourself, at the counter, with the stand where it will live.
 |---|---|---|
 | 1 | Scan your own gym card | Name prompt appears (first time) |
 | 2 | Type your name, Save | Item grid appears |
-| 3 | Tap a drink | "Thanks, [name]" then back to scan screen after 2s |
+| 3 | Tap a drink | "Thanks, [name]" — the receipt stays up 5 s, then the scan screen comes back |
+| 3b | Tap **Undo** on that receipt (before it closes) | The sale is gone, back to the scan screen. Check in admin later: it shows as a VOID line, not as money |
 | 4 | Scan your card again | Greets you by name — no typing |
+| 4b | Scan your card and **walk away without tapping** | After 45 s it returns to the scan screen by itself, camera running — the next person can't be charged for your tab |
 | 5 | Tap **Not you?** | Asks "Whose card is this?" and names who it's saved as. Nothing is overwritten yet |
 | 5b | On that screen tap **No, I'm [your name]** | Straight back to the greeting, name untouched |
+| 5c | Tap **No card? Type your member number** | The camera pauses and a number field appears. Type your own number with a **wrong** name → it refuses and charges nothing. Type it with the right name → the item grid appears |
+| 5d | From that grid tap **Not you?** | Back to the number field, not to a rename form — a typed number never renames anybody |
 | 6 | Scan, then walk away without tapping | Tap **Cancel** — returns to scan screen |
 | 7 | Pull the screen down hard | Nothing should refresh |
 | 8 | Double-tap a product fast | **One** sale, not two |
 | 9 | **Scan your barcode off your phone screen** | This is the one most likely to fail — see below |
 | 10 | Force-close the app and reopen | Your test sales are still there |
+| 11 | Pull a batch, then **View** it in admin | Member numbers, TYPED marks with a check box, and VOID lines if you undid anything. Print it only after you've eyeballed it |
 
 **Aim along the width.** The reader decodes a wide strip across the middle of
 the frame. Hold the keytag level and let it fill the frame side to side; the
@@ -162,6 +172,33 @@ sales are actually entered.
 
 Processed batches stay visible for 30 days, so you can reprint one if needed.
 
+### Pull twice a day, not once — opening and midday
+
+Nothing is banked until the sheet is keyed into the gym software. Until then the
+sales live in the iPad's own storage, and an iPad that dies, gets wiped, or is
+factory-reset takes them with it. Two pulls a day keeps the worst case at half a
+shift instead of a week.
+
+The admin footer tells you when: **oldest waiting** is the age of the oldest sale
+nobody has keyed in yet. It turns **red past six hours**. Red means stop and pull
+a batch.
+
+### The desk gate on TYPED lines
+
+A member whose card won't scan types their member number on the idle screen. Those
+lines print marked **TYPED** with an empty **desk checked** box beside them.
+
+- Check the member number against the screen before keying the line in.
+- **Tick the box by hand when it matches.** That tick is the whole point: it is
+  the desk saying a human checked the one line on the sheet a member could have
+  typed wrongly — on purpose or by accident.
+- The kiosk already refuses a number it doesn't know with a name that doesn't
+  match, so a wrong line should never reach the sheet. If one does, don't key it.
+
+A voided line prints struck through with **VOID** and is already excluded from
+the total — don't key it, and don't chase it. If a line was voided *after* you
+keyed it in, correct it in the gym software.
+
 ### If something goes wrong
 
 | Symptom | Fix |
@@ -189,6 +226,48 @@ every uncollected sale silently gone, no error, no way to get them back.
 
 If you ever do need to move it, pull and confirm a batch **first**, so nothing is
 sitting uncollected.
+
+---
+
+## Rolling back
+
+**Never deploy a build older than `8e8d159a13b89712bfff21d5f654ea9dfb3cb805`.**
+
+That commit is the rollback floor. It is the oldest version that still *reads*
+everything a newer build can write: member numbers, typed lines and voided lines
+all show up correctly on its sheets. Anything older is archive only — it would
+print a sheet with the TYPED and VOID marks missing, and the worker would key in
+lines that were never meant to be keyed in, or miss the one line needing a check.
+
+Rolling back is: `git revert` or `git checkout <hash>` for `index.html`, push,
+wait ~2 min for Pages, then confirm **build** in the admin footer changed. A
+force-reload proves nothing — see below.
+
+## Killing the service worker (if a deploy won't land)
+
+The app installs a service worker so it opens with no network. That also means a
+force-reload is not evidence: the worker serves its cached copy from in front of
+the network. Always check **build** in the admin footer first.
+
+If the worker is wedged and the footer still shows the old build, deploy this as
+`sw.js` in the repo root, wait ~2 min for Pages, open the kiosk once, then delete
+the file and push that:
+
+```js
+// KILL SWITCH — deploy, open the kiosk once, then delete this file.
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    for (const key of await caches.keys()) {
+      if (key.startsWith('ij-shell-')) await caches.delete(key);
+    }
+    await self.registration.unregister();
+  })());
+});
+```
+
+Reopen the app from the home screen. Do this only when the kiosk is idle and the
+sales are already pulled — a worker swap reloads the page.
 
 ---
 
