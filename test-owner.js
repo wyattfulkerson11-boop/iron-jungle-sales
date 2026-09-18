@@ -74,6 +74,16 @@ function boot(storage = null) {
 }
 
 const st = (w) => w.eval('state');
+// Values built inside the jsdom window have that realm's prototypes, so
+// deepStrictEqual against a Node literal always fails. Compare as plain data.
+const plain = (x) => JSON.parse(JSON.stringify(x));
+// Storage has a named-property setter: `localStorage.setItem = fn` stores an
+// item, it does not replace the method. Deny writes on the prototype instead.
+function denyWrites(w) {
+  const orig = w.Storage.prototype.setItem;
+  w.Storage.prototype.setItem = function () { throw new Error('QuotaExceededError'); };
+  return () => { w.Storage.prototype.setItem = orig; };
+}
 const active = (w) => [...w.document.querySelectorAll('.screen.active')].map(e => e.id);
 const $ = (w, id) => w.document.getElementById(id);
 
@@ -297,7 +307,7 @@ check('4c garbage is rejected in place', () => {
   typeEntry(w, '12', 'Someone');
   assert.strictEqual(st(w), 'typing');
   assert.ok(!$(w, 'typed-error').hidden && $(w, 'typed-error').textContent.trim().length > 0);
-  assert.deepStrictEqual(w.loadState().members, {});
+  assert.deepStrictEqual(plain(w.loadState().members), {});
 });
 
 check('4d unknown number + name enrols, locks in, and the sale is TYPED', () => {
@@ -413,7 +423,7 @@ check('5e admin void in a Pending batch: VOID line, excluded from total, members
   const before = w.buildBatchReport('legacy-pending');
   assert.strictEqual(w.voidSale('L4', 'admin'), true);
   const b = w.loadState().batches.find(x => x.id === 'legacy-pending');
-  assert.deepStrictEqual(b.saleIds, ['L4'], 'invariant 1: saleIds never shrink');
+  assert.deepStrictEqual(plain(b.saleIds), ['L4'], 'invariant 1: saleIds never shrink');
   const r = w.buildBatchReport('legacy-pending');
   assert.strictEqual(r.totalCents, 0);
   assert.strictEqual(r.lineCount, 0);
@@ -442,10 +452,9 @@ check('5g first void wins; a second is refused and does not rewrite', () => {
 
 check('5h a denied write on void does not report success', () => {
   const w = boot(fx.legacyState());
-  const orig = w.localStorage.setItem.bind(w.localStorage);
-  w.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  const restore = denyWrites(w);
   assert.strictEqual(w.voidSale('L4', 'admin'), false);
-  w.localStorage.setItem = orig;
+  restore();
   assert.ok(!w.loadState().sales.find(s => s.id === 'L4').voidedAt);
 });
 
@@ -455,10 +464,13 @@ check('5i Undo with a denied write never shows the sale as undone', () => {
   buy(w);
   let msg = '';
   w.alert = (m) => { msg = String(m); };
-  w.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  const restore = denyWrites(w);
   $(w, 'undo-btn').click();
+  restore();
   assert.ok(/could not undo/i.test(msg), 'must tell the member it failed');
-  assert.ok(!w.document.body.textContent.match(/\bundone\b/i), 'must not claim success');
+  // Visible text only: the page's <script> sits inside <body>, and its comments say "undone".
+  const shown = [...w.document.querySelectorAll('.screen')].map(e => e.textContent).join(' ');
+  assert.ok(!/\bundone\b/i.test(shown), 'must not claim success');
   assert.strictEqual(st(w), 'idle');
 });
 
@@ -552,7 +564,7 @@ check('E0b floor: waiting count and new batch skip the voided unbatched sale', (
   const w = boot(fx.v2State());
   assert.strictEqual(w.pendingSaleCount(), 1, 'V4 waits, V5 is voided');
   const b = w.createBatch();
-  assert.deepStrictEqual(b.saleIds, ['V4']);
+  assert.deepStrictEqual(plain(b.saleIds), ['V4']);
 });
 
 check('E0c floor: a new scanned sale still records on v2 data', () => {
@@ -577,6 +589,56 @@ check('E3a a 500-line batch builds with the right total', () => {
   const expected = s.sales.reduce((t, x) => t + x.price * x.qty, 0);
   assert.strictEqual(r.lineCount, 500);
   assert.strictEqual(r.totalCents, expected);
+});
+
+/* ============ Added at verification, 2026-09-18 ============ */
+
+check('V1 every precached shell entry is a real file (a 404 fails the whole install)', () => {
+  const sw = read('sw.js');
+  const m = sw && sw.match(/SHELL\s*=\s*\[([^\]]*)\]/);
+  assert.ok(m, 'SHELL list not found');
+  const entries = m[1].match(/'[^']*'|"[^"]*"/g).map(s => s.slice(1, -1));
+  for (const e of entries) {
+    if (e === './') continue;
+    assert.ok(!e.endsWith('/'), e + ' is a directory — Pages serves 404 for it');
+    assert.ok(fs.existsSync(__dirname + '/' + e), e + ' does not exist');
+  }
+  assert.ok(entries.some(e => /^vendor\/.+\.js$/.test(e)), 'the scanner library must be precached');
+});
+
+check('V2 a card still in frame is ignored when the receipt closes', () => {
+  const w = boot();
+  enrollByScan(w, 'IJG18381', 'Left It');
+  buy(w);
+  finishSuccess(w);
+  assert.strictEqual(st(w), 'idle');
+  w.onScanSuccess('IJG18381');
+  assert.strictEqual(st(w), 'idle', 'the card left on the counter must not reopen the tab');
+  w.tick(3000);
+  w.onScanSuccess('IJG18381');
+  assert.strictEqual(st(w), 'locked', 'a deliberate scan after the lockout still works');
+});
+
+check('V3 admin Void asks first; declining voids nothing', () => {
+  const w = boot(fx.legacyState());
+  openAdmin(w);
+  w.viewBatch('legacy-pending');
+  const btn = $(w, 'batch-view-body').querySelector('[data-void="L4"]');
+  assert.ok(btn, 'Void button on a pending batch line');
+  let asked = 0;
+  w.confirm = () => { asked++; return false; };
+  btn.click();
+  assert.strictEqual(asked, 1, 'must confirm before an irreversible void');
+  assert.ok(!w.loadState().sales.find(s => s.id === 'L4').voidedAt);
+  w.confirm = () => true;
+  $(w, 'batch-view-body').querySelector('[data-void="L4"]').click();
+  assert.strictEqual(w.loadState().sales.find(s => s.id === 'L4').voidedBy, 'admin');
+});
+
+check('V4 no function is declared twice in index.html (the later one silently wins)', () => {
+  const names = [...html.matchAll(/^function\s+([A-Za-z_$][\w$]*)/gm)].map(m => m[1]);
+  const dup = names.filter((n, i) => names.indexOf(n) !== i);
+  assert.deepStrictEqual(dup, []);
 });
 
 /* ---------------- report ---------------- */
