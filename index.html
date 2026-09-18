@@ -916,6 +916,10 @@ function quarantine(key) {
 }
 
 function saveState(state) {
+  // Frozen by the multi-context guard: another copy of the kiosk has written,
+  // so this page's view of the data is stale and anything it writes now would
+  // drop the other copy's sales. Refusing is the only safe answer.
+  if (staleWriter) return false;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     return true;
@@ -928,6 +932,62 @@ function addSale(sale) {
   const state = loadState();
   state.sales.push(sale);
   return saveState(state);
+}
+
+/* ============================================================
+ * Item 6 — one writer at a time
+ *
+ * localStorage is shared by every tab, window and home-screen copy of the app
+ * on this device, and `ij.v1` is rewritten as one JSON blob per change. Two
+ * live copies therefore do not merge: the last writer overwrites the other's
+ * sales, and one of them loses a member's purchase with no error anywhere.
+ * There is no lock available to us, so this page watches for the other copy's
+ * writes and refuses to race it.
+ * ============================================================ */
+
+/**
+ * Set once another copy of the kiosk has written. From that moment every write
+ * here is refused, because this page's copy of the data is stale and anything
+ * it saves would drop whatever the other copy added.
+ */
+let staleWriter = false;
+
+/** Reload the page. A named function so the guard can be driven in tests. */
+function reloadPage() {
+  if (typeof location !== 'undefined' && location.reload) location.reload();
+}
+
+/**
+ * Somebody else wrote `ij.v1`:
+ *   - nobody mid-transaction → reload, and take their data as the truth;
+ *   - somebody mid-transaction → a reload would throw away the sale in front of
+ *     them, so freeze this page instead and say so out loud.
+ */
+function onStorageEvent(event) {
+  // Other keys are none of our business (the corrupt-storage rename, or any
+  // other app on the same origin).
+  if (!event || event.key !== STORAGE_KEY) return;
+  if (state === 'idle') {
+    reloadPage();
+    return;
+  }
+  if (staleWriter) return;   // already frozen: one warning is enough
+  staleWriter = true;
+  alert('Another copy of the kiosk is open. This one will not record any more ' +
+        'sales — close it and reload the kiosk.');
+}
+
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('storage', onStorageEvent);
+}
+
+/**
+ * Service worker: registers only where it exists (not in the test harnesses),
+ * and by relative path so the same file works from the project subpath GitHub
+ * Pages serves it from. Delivery layer only — nothing above depends on it.
+ */
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
 }
 
 /* ============================================================
@@ -1490,7 +1550,10 @@ function recordSale(product) {
     // Go back to 'locked' and re-enable the grid so the member can retry.
     // Previously this left state='recording' with every button disabled,
     // wedging the kiosk until someone reloaded it.
-    alert('Could not save that sale. Please tap the item again.');
+    alert(staleWriter
+      ? 'Another copy of the kiosk is open, so this sale was NOT recorded. ' +
+        'Close the other one and reload the kiosk.'
+      : 'Could not save that sale. Please tap the item again.');
     state = 'locked';
     updateLockedScreen();
   }
@@ -1951,7 +2014,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-18.6';
+var BUILD = '2026-09-18.7';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;

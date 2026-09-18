@@ -209,6 +209,7 @@ keyed it in, correct it in the gym software.
 | Camera unavailable + a message in brackets | That bracketed text is the real reason. Send it to me — it is not always a permission problem |
 | Scan preview frozen / nothing reads | It should recover by itself when the app comes back to the foreground. If it does not, close the app from the home screen and reopen |
 | "Could not save that sale" | Storage is full — pull a batch, confirm it, then clear old data |
+| **"Another copy of the kiosk is open"** | The app is open twice (a Safari tab *and* the home-screen icon, most likely). Close the other one and reload this one. Nothing is lost — the kiosk refuses to write rather than let two copies overwrite each other's sales |
 | Someone's name is wrong | Scan their badge → **Not [name]?** → retype |
 
 Sales are **not** lost by closing the app or restarting the iPad. They live on
