@@ -307,6 +307,17 @@
   }
   .success-who { font-size: clamp(18px, 2.4vw, 24px); font-weight: 600; opacity: .82; }
 
+  /* Undo sits on the flood, quiet enough not to compete with the confirmation
+     and big enough to hit without aiming — a mis-tap is exactly the state of
+     mind this button is for. */
+  .undo-btn {
+    margin-top: 18px; min-height: 60px; padding: 0 24px;
+    font: inherit; font-size: 18px; font-weight: 700;
+    color: #fff; background: rgba(255, 255, 255, .18);
+    border: 2px solid rgba(255, 255, 255, .6); border-radius: 14px;
+  }
+  .undo-btn:active { background: rgba(255, 255, 255, .32); }
+
   @media (prefers-reduced-motion: no-preference) {
     #success.active .success-item,
     #success.active .success-check { animation: rise .22s cubic-bezier(.2,.7,.3,1) both; }
@@ -346,6 +357,15 @@
     background: var(--card); color: var(--ink);
   }
   .btn-sm.solid { background: var(--ink); color: #fff; border-color: var(--ink); }
+  /* Admin-only destructive-in-place control: the Void button on a Pending
+     batch's lines and on a waiting sale. Outlined, not filled — it sits next
+     to the money and must never look like the button to press by default. */
+  .btn-sm.danger { color: var(--danger); border-color: var(--danger); }
+  .btn-sm.danger:active { background: #FDECEA; }
+  #batch-view-body .void-cell { width: 1%; white-space: nowrap; text-align: right; }
+  #admin-batches .waiting-group { display: flex; flex-direction: column; gap: 6px; }
+  /* The Void column is an on-screen control, never part of a printed sheet. */
+  @media print { .void-cell { display: none; } }
   .btn-danger {
     min-height: 52px; padding: 0 18px; font-size: 16px; font-weight: 700;
     border-radius: 12px; background: none;
@@ -922,6 +942,15 @@ let entryMode = 'scan';
 // Timestamp before which scans are ignored. A badge left sitting in frame
 // re-decodes continuously, so a plain "pause the camera" is not enough on its own.
 let scanLockoutUntil = 0;
+// The receipt — and with it the Undo — stays up for 5 s. It was 2 s: long
+// enough to see the item, not long enough to realise you tapped the wrong one
+// and do something about it. This is the member's only chance to say so.
+const SUCCESS_MS = 5000;
+// Which sale the receipt on screen belongs to, so its Undo and its own timeout
+// act on that sale and nothing else.
+let successSaleId = null;
+// The receipt's timeout, kept so Undo and any early exit can cancel it.
+let successTimer = null;
 
 // Lockout duration for secondary guard (ms)
 const LOCKOUT_MS = 3000;
@@ -1004,11 +1033,12 @@ function enterRecording() {
 }
 
 /**
- * Enters success state: shows confirmation for 2s then returns to idle.
+ * Enters success state: shows the confirmation for 5 s, then returns to idle.
  */
 function enterSuccess(sale) {
   if (state !== 'recording') return;
   state = 'success';
+  successSaleId = sale.id;
   // Flood the screen in the item's own plate colour — readable from across
   // the room, and it names the item so a mis-tap is caught immediately.
   const scr = document.getElementById('success');
@@ -1017,15 +1047,84 @@ function enterSuccess(sale) {
     <div class="success-check" aria-hidden="true">&check;</div>
     <div class="success-item">${escapeHtml(sale.productName)}${sale.qty > 1 ? ' &times; ' + sale.qty : ''}</div>
     <div class="success-who">Charged to ${escapeHtml(sale.memberName)}</div>
+    <button class="undo-btn" id="undo-btn">Undo &mdash; I didn&rsquo;t mean that</button>
   `;
+  const undo = document.getElementById('undo-btn');
+  if (undo) undo.addEventListener('click', onUndoSale);
+  // The sale is rung up: from here the badge in front of the lens must not be
+  // able to ring up another one. Armed NOW rather than when the receipt closes,
+  // because the window is measured from the sale it protects. Arming it at the
+  // end of the receipt instead blocked the NEXT member — who scans the instant
+  // the screen clears — while the camera is off for the whole 5 s anyway, so a
+  // badge left in frame is already covered by the pause.
+  armScanLockout();
   showScreen('success');
   armInactivityTimer();
-  setTimeout(() => {
+  // The handle is kept so Undo (and any early exit) can cancel it. The sale id
+  // check inside is the belt to that braces: a timer that somehow survives
+  // must not clear a screen that now belongs to somebody else.
+  if (successTimer !== null) clearTimeout(successTimer);
+  successTimer = setTimeout(() => {
+    successTimer = null;
+    if (state !== 'success' || successSaleId !== sale.id) return;
+    successSaleId = null;
     // Clear the name off the screen before the next member walks up.
     document.getElementById('success').innerHTML = '';
-    armScanLockout();
     enterIdle();
-  }, 2000);
+  }, SUCCESS_MS);
+}
+
+/**
+ * Undo, from the receipt. The member is the only person who knows a mis-tap
+ * happened, and this is the last second in which they can say so — after this
+ * the sale is in a batch and only an admin can void it.
+ */
+function onUndoSale() {
+  if (state !== 'success' || !successSaleId) return;
+  const saleId = successSaleId;
+  if (!voidSale(saleId, 'member-undo')) {
+    // The write failed, so the sale EXISTS. Saying nothing, or showing it as
+    // undone, would send the member away believing they were not charged.
+    clearSuccessTimer();
+    alert('Could not undo that — please tell the front desk.');
+    returnToIdle();
+    return;
+  }
+  // The receipt described a sale that no longer exists: take it down with it,
+  // and cancel its timer so it cannot fire over whatever happens next.
+  clearSuccessTimer();
+  successSaleId = null;
+  document.getElementById('success').innerHTML = '';
+  returnToIdle();
+}
+
+/** Cancel the receipt's own timeout, if it is still armed. */
+function clearSuccessTimer() {
+  if (successTimer !== null) {
+    clearTimeout(successTimer);
+    successTimer = null;
+  }
+}
+
+/**
+ * Undo, from the receipt. The member is the only person who knows a mis-tap
+ * happened, and this is the last second in which they can say so — after this
+ * the sale is in a batch and only an admin can void it.
+ */
+function onUndoSale() {
+  if (state !== 'success' || !successSaleId) return;
+  const saleId = successSaleId;
+  if (!voidSale(saleId, 'member-undo')) {
+    // The write failed, so the sale EXISTS. Saying nothing, or showing it as
+    // undone, would send the member away believing they were not charged.
+    alert('Could not undo that — please tell the front desk.');
+    returnToIdle();
+    return;
+  }
+  // The receipt described a sale that no longer exists: take it down with it.
+  successSaleId = null;
+  document.getElementById('success').innerHTML = '';
+  returnToIdle();
 }
 
 /**
@@ -1424,6 +1523,38 @@ function createBatch() {
 }
 
 /**
+ * Item 5 — void a sale.
+ *
+ * Two callers, two reasons, one rule: a sale that was rung up in error must
+ * never reach the POS, and the record of what happened must never be rewritten.
+ * So a void sets `voidedAt`/`voidedBy` on the sale and leaves it in place —
+ * `createBatch` skips it, the waiting count skips it, the report prints it as
+ * VOID and leaves it out of the total. `saleIds` never shrinks, so a batch that
+ * has already been keyed in cannot quietly change under the desk's feet.
+ *
+ * Refused when: the sale is unknown, it is already voided (first void wins —
+ * otherwise an admin void could relabel a member's own undo), or it sits in a
+ * batch that has been Confirmed. A Processed batch is a receipt the desk has
+ * already typed into the POS; editing it would make the two disagree, and the
+ * POS is the one that is right.
+ */
+function voidSale(saleId, by) {
+  if (by !== 'admin' && by !== 'member-undo') return false;
+  const state = loadState();
+  const sale = state.sales.find(s => s.id === saleId);
+  if (!sale || sale.voidedAt) return false;
+  if (sale.batchId !== null) {
+    const batch = state.batches.find(b => b.id === sale.batchId);
+    if (!batch || batch.status !== 'pending') return false;
+  }
+  sale.voidedAt = new Date().toISOString();
+  sale.voidedBy = by;
+  // loadState() reads storage fresh on every call, so a refused write leaves
+  // nothing half-applied in memory: the caller sees false, and no void exists.
+  return saveState(state);
+}
+
+/**
  * Batch identity, for humans. `id` is a random UUID — fine as a key, useless
  * for a worker trying to say which batch they keyed. Every batch already
  * carries createdAt and processedAt, so a readable label needs no stored
@@ -1456,7 +1587,7 @@ function lastActionLabel(batch) {
  * be three chances for the printed sheet and the shared copy to disagree about
  * what a member owes.
  */
-function buildBatchReport(batchId) {
+function buildBatchReport(batchId, options) {
   const state = loadState();
   const batch = state.batches.find(b => b.id === batchId);
   if (!batch) return null;
@@ -1469,7 +1600,7 @@ function buildBatchReport(batchId) {
   // and it will not have stamped anything. Rendering v2 on the strength of the
   // sales alone means TYPED and VOID can never be hidden by a stale writer
   // (PLAN §D3, review round 5).
-  if (isV2Batch(batch, batchSales)) return buildV2Report(batch, batchSales);
+  if (isV2Batch(batch, batchSales)) return buildV2Report(batch, batchSales, options);
 
   // ---- Legacy sheet, byte-for-byte what this batch was created with. ----
   // Invariant 3: a batch already printed and keyed in must reprint identically.
@@ -1503,7 +1634,7 @@ function buildBatchReport(batchId) {
     </p>
     <table>
       <thead>
-        <tr><th>Member</th><th>Item</th><th>Qty</th><th>Amount</th><th>Time</th></tr>
+        <tr><th>Member</th><th>Item</th><th>Qty</th><th>Amount</th><th>Time</th>${voidColHead(options)}</tr>
       </thead>
       <tbody>
         ${members.map(m => grouped[m].map((s, i) => `
@@ -1512,12 +1643,12 @@ function buildBatchReport(batchId) {
             <td>${escapeHtml(s.productName)}</td>
             <td>${s.qty}</td>
             <td>${formatPrice(s.price * s.qty)}</td>
-            <td>${time(s)}</td>
+            <td>${time(s)}</td>${voidColCell(s, options)}
           </tr>
         `).join('')).join('')}
         <tr class="total-row">
           <td>Total</td><td></td><td></td>
-          <td>${formatPrice(totalCents)}</td><td></td>
+          <td>${formatPrice(totalCents)}</td><td></td>${voidColFiller(options)}
         </tr>
       </tbody>
     </table>
@@ -1567,6 +1698,29 @@ function voidMark(sale) {
   return sale.voidedBy === 'admin' ? 'VOID (admin)' : 'VOID (member undo)';
 }
 
+/* ---------- admin-only Void column (PLAN §D5b) ----------
+ * The desk has to be able to strike a line off a Pending batch without leaving
+ * the counter, so the on-screen report grows one control per line. It is
+ * strictly an on-screen affordance: nothing that is printed or shared asks for
+ * it, so the sheet the worker keys from and the receipt the owner checks are
+ * byte-for-byte what they always were. */
+function voidColHead(options) {
+  return options && options.voidable ? '<th></th>' : '';
+}
+
+function voidColCell(sale, options) {
+  if (!options || !options.voidable) return '';
+  // Keep the column aligned on a voided line, and offer nothing to re-void:
+  // the first void wins.
+  if (sale.voidedAt) return '<td class="void-cell"></td>';
+  return '<td class="void-cell"><button class="btn-sm danger" data-void="' +
+    escapeHtml(sale.id) + '">Void</button></td>';
+}
+
+function voidColFiller(options) {
+  return options && options.voidable ? '<td></td>' : '';
+}
+
 // The box the desk ticks by hand, once it has checked the number on a TYPED
 // line against the POS (PLAN §D4). Ticking it is the gate, not the kiosk.
 const DESK_CHECK_HTML = '<span class="desk-check">&#9744; desk checked</span>';
@@ -1582,7 +1736,7 @@ const DESK_CHECK_TEXT = '\u2610 desk checked';
  *   - **VOID** on any line that has been undone, excluded from the line count
  *     and the total, so the sheet and the POS are asked for the same money.
  */
-function buildV2Report(batch, batchSales) {
+function buildV2Report(batch, batchSales, options) {
   const live = batchSales.filter(s => !s.voidedAt);
   const shortId = batch.id.slice(0, 8);
   const label = batchLabel(batch);
@@ -1620,7 +1774,7 @@ function buildV2Report(batch, batchSales) {
     </p>
     <table>
       <thead>
-        <tr><th>Member</th><th>Member #</th><th>Item</th><th>Qty</th><th>Amount</th><th>Time</th><th>Desk</th></tr>
+        <tr><th>Member</th><th>Member #</th><th>Item</th><th>Qty</th><th>Amount</th><th>Time</th><th>Desk</th>${voidColHead(options)}</tr>
       </thead>
       <tbody>
         ${badgeIds.map(id => grouped[id].map((s, i) => `
@@ -1631,12 +1785,12 @@ function buildV2Report(batch, batchSales) {
             <td>${s.qty}</td>
             <td>${formatPrice(s.price * s.qty)}</td>
             <td>${time(s)}</td>
-            <td>${marksHtml(s)}</td>
+            <td>${marksHtml(s)}</td>${voidColCell(s, options)}
           </tr>
         `).join('')).join('')}
         <tr class="total-row">
           <td>Total</td><td></td><td></td><td></td>
-          <td>${formatPrice(totalCents)}</td><td></td><td></td>
+          <td>${formatPrice(totalCents)}</td><td></td><td></td>${voidColFiller(options)}
         </tr>
       </tbody>
     </table>
@@ -1681,7 +1835,12 @@ let viewedBatchId = null;
  * software needs to read the batch, not print it.
  */
 function viewBatch(batchId) {
-  const report = buildBatchReport(batchId);
+  const batch = loadState().batches.find(b => b.id === batchId);
+  // Void controls ONLY while the batch is pending: a Confirmed batch is a
+  // receipt already keyed into the POS, and the sheet that comes up next to it
+  // must not offer to change it (PLAN §D5).
+  const options = { voidable: !!batch && batch.status === 'pending' };
+  const report = buildBatchReport(batchId, options);
   if (!report) return;
   viewedBatchId = batchId;
   document.getElementById('batch-view-title').textContent = report.label;
@@ -1697,6 +1856,32 @@ function closeBatchView() {
   viewedBatchId = null;
   document.getElementById('batch-view').hidden = true;
 }
+
+/**
+ * Admin Void, from the two places the lines are listed (PLAN §D5b): the lines
+ * of a Pending batch in the batch view, and the unbatched sales waiting for one
+ * on the admin screen. Delegated, because both lists are rebuilt from scratch
+ * every time anything changes — a per-button listener lasts exactly one click.
+ */
+function onAdminVoidClick(e) {
+  const btn = e.target && e.target.closest ? e.target.closest('[data-void]') : null;
+  if (!btn) return;
+  if (!voidSale(btn.getAttribute('data-void'), 'admin')) {
+    alert('Could not void that line. If the batch has already been keyed in, ' +
+          'correct it in the gym software.');
+    return;
+  }
+  renderAdmin();
+  if (viewedBatchId) viewBatch(viewedBatchId);
+}
+
+function wireAdminVoid() {
+  const list = document.getElementById('admin-batches');
+  if (list) list.addEventListener('click', onAdminVoidClick);
+  const body = document.getElementById('batch-view-body');
+  if (body) body.addEventListener('click', onAdminVoidClick);
+}
+wireAdminVoid();
 
 function printViewedBatch() {
   if (viewedBatchId) printBatch(viewedBatchId);
@@ -1762,7 +1947,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-18.4';
+var BUILD = '2026-09-18.5';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;
@@ -1796,6 +1981,11 @@ function pendingSaleCount() {
   const state = loadState();
   // A voided sale is not waiting for anything: it must never reach the POS.
   return state.sales.filter(s => s.batchId === null && !s.voidedAt).length;
+}
+
+/** The unbatched, non-voided sales — what "Waiting" in admin actually lists. */
+function waitingSales() {
+  return loadState().sales.filter(s => s.batchId === null && !s.voidedAt);
 }
 
 function listAdminBatches() {
@@ -1879,12 +2069,26 @@ function renderAdmin() {
     `;
   }).join('');
 
+  const waiting = waitingSales();
+  const waitingRows = waiting.length ? `
+    <h3>Waiting to be batched</h3>
+    ${waiting.map(s => `
+      <div class="batch">
+        <span class="batch-id">${escapeHtml(s.memberName)}</span>
+        <span class="batch-meta">${escapeHtml(s.productName)}${s.qty > 1 ? ' &times; ' + s.qty : ''}</span>
+        <span class="batch-meta">${formatPrice(s.price * s.qty)}</span>
+        <span class="spacer"></span>
+        <button class="btn-sm danger" data-void="${escapeHtml(s.id)}">Void</button>
+      </div>
+    `).join('')}
+  ` : '';
+
   const empty = batches.length ? '' :
     `<p class="empty">No batches yet. ${unexported
       ? unexported + ' sale' + (unexported === 1 ? '' : 's') + ' waiting \u2014 create a batch to print them.'
       : 'Sales will appear here once members start buying.'}</p>`;
 
-  container.innerHTML = corruptNote + '<h3>Batches</h3>' + rows + empty;
+  container.innerHTML = corruptNote + waitingRows + '<h3>Batches</h3>' + rows + empty;
 
   // Put the waiting count next to the action it affects, and don't offer a
   // button that would do nothing.
