@@ -255,6 +255,24 @@
   }
   #name-input:focus { outline: 3px solid var(--plate-blue); outline-offset: 2px; }
 
+  /* ---------- typed member number ----------
+     Same weight and size as the enrollment input: this is the same act (typing
+     your identity on a counter screen), so it must feel like the same thing. */
+  .typed-wrap { display: flex; flex-direction: column; gap: 18px; max-width: 560px; width: 100%; margin: 0 auto; }
+  #typed-number, #typed-name {
+    width: 100%; padding: 20px 22px;
+    font: inherit; font-size: 26px; font-weight: 600; color: var(--ink);
+    background: var(--card); border: 2px solid var(--rule); border-radius: 14px;
+  }
+  /* Card numbers are printed uppercase; show them that way so a typed ID is
+     visually identical to the one on the card. */
+  #typed-number { text-transform: uppercase; letter-spacing: .06em; }
+  #typed-number::placeholder, #typed-name::placeholder {
+    text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--ink-soft);
+  }
+  #typed-number:focus, #typed-name:focus { outline: 3px solid var(--plate-blue); outline-offset: 2px; }
+  #type-number-btn { margin-top: 2px; }
+
   .btn-primary {
     min-height: 68px; padding: 0 28px;
     font-size: 21px; font-weight: 700; color: #fff;
@@ -398,7 +416,25 @@
     <span></span><span></span><span></span><span></span>
   </div>
   <p class="hint">Card or phone &mdash; hold it steady</p>
+  <button class="linkish" id="type-number-btn">No card? Type your member number</button>
   <p id="scanner-error" class="error" hidden></p>
+</div>
+
+<div id="typing" class="screen">
+  <div class="typed-wrap">
+    <h2 class="enroll-title">Type your member number</h2>
+    <p class="hint" style="text-align:left">
+      It&rsquo;s on the front of your card. Then type the name it&rsquo;s saved under &mdash;
+      we check it, so nobody can bill your number.
+    </p>
+    <input type="text" id="typed-number" placeholder="Member number" maxlength="32"
+           autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <input type="text" id="typed-name" placeholder="Your name" maxlength="40"
+           autocomplete="off" autocapitalize="words" spellcheck="false">
+    <p id="typed-error" class="error" hidden></p>
+    <button class="btn-primary" id="typed-continue">Continue</button>
+    <button class="cancel-btn" id="typed-cancel">Cancel</button>
+  </div>
 </div>
 
 <div id="locked" class="screen">
@@ -943,6 +979,18 @@ function enterLocked(badgeId) {
 }
 
 /**
+ * The member in front of the kiosk is now identified: hand them the item grid.
+ * Both entry paths end here — a scan (already idle) and a typed number (typing).
+ * enterLocked() only accepts `idle`, so the typed path hands the state over
+ * explicitly rather than duplicating the lock-in.
+ */
+function lockInMember(badgeId, mode) {
+  entryMode = mode;
+  if (state !== 'idle') state = 'idle';
+  enterLocked(badgeId);
+}
+
+/**
  * Enters recording state: disables all product buttons synchronously.
  */
 function enterRecording() {
@@ -1098,6 +1146,10 @@ function updateLockedScreen(forceEnroll) {
     // Re-prompt for a name instead of just bouncing to idle — the old code
     // deleted from a throwaway loadState() copy, so the bad name never cleared.
     document.getElementById('not-me-btn').addEventListener('click', () => {
+      // A typed number is not a card: there is nothing to re-bind, and letting
+      // someone rename a member here would undo the name check that is the
+      // whole point of the typed path. Send them back to what they typed.
+      if (entryMode === 'typed') { returnToTyping(); return; }
       updateLockedScreen(true);
     });
     wireQtyStepper();
@@ -1156,6 +1208,109 @@ function wireCancel() {
   const btn = document.getElementById('cancel-btn');
   if (btn) btn.addEventListener('click', returnToIdle);
 }
+
+/* ============================================================
+ * Item 4 — typed member number
+ *
+ * Not every member carries a card that scans, and a dead card must not mean a
+ * member cannot buy anything. A typed number is also the obvious way to bill
+ * somebody else's number, so the typed path asks for the NAME as well and
+ * checks it against the one on file — a member who cannot say their own saved
+ * name is not that member (PLAN §D4).
+ * ============================================================ */
+
+/** Case, spacing and punctuation are not evidence of anything. */
+function normalizeNameForMatch(name) {
+  return String(name).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function typedError(message) {
+  const el = document.getElementById('typed-error');
+  if (el) { el.textContent = message; el.hidden = false; }
+  return false;
+}
+
+function clearTypedFields() {
+  const number = document.getElementById('typed-number');
+  const name = document.getElementById('typed-name');
+  if (number) number.value = '';
+  if (name) name.value = '';
+  const err = document.getElementById('typed-error');
+  if (err) err.hidden = true;
+}
+
+function openTypedEntry() {
+  if (state !== 'idle') return;
+  state = 'typing';
+  // Camera off while somebody types: a card read mid-typing would otherwise
+  // lock the kiosk onto whoever happened to walk past the lens.
+  pauseScanner();
+  clearTypedFields();
+  showScreen('typing');
+  const number = document.getElementById('typed-number');
+  if (number && number.focus) number.focus();
+  armInactivityTimer();
+}
+
+/**
+ * "Not you?" on a typed sale. There is no card to re-bind, so go back to the
+ * number they were typing — the rebind form is for scanned cards, and offering
+ * it here would let anyone rename a member whose number they merely typed.
+ */
+function returnToTyping() {
+  state = 'typing';
+  const err = document.getElementById('typed-error');
+  if (err) err.hidden = true;
+  showScreen('typing');
+  armInactivityTimer();
+}
+
+/**
+ * Continue on the typing screen. Three outcomes, all of them explicit:
+ * the number is unknown and the member is enrolled under the name they typed;
+ * the number is known and the name matches (case/spacing/punctuation ignored);
+ * or it is refused, in place, revealing nothing about who owns that number.
+ */
+function onTypedContinue() {
+  if (state !== 'typing') return;
+  const numberEl = document.getElementById('typed-number');
+  const nameEl = document.getElementById('typed-name');
+  const badgeId = normalizeBadgeId(numberEl ? numberEl.value : '');
+  if (!badgeId) {
+    return typedError('That doesn\u2019t look like a member number. Check the front of your card.');
+  }
+  const clean = sanitizeName(nameEl ? nameEl.value : '');
+  const typedName = clean ? normalizeNameForMatch(clean) : '';
+  if (!typedName) return typedError('Please type the name on your membership.');
+
+  const members = loadState().members;
+  const existing = members[badgeId];
+  if (existing) {
+    // Vague on purpose: naming the saved member would turn this screen into a
+    // way to read other people's names off the kiosk.
+    if (normalizeNameForMatch(existing.name) !== typedName) {
+      return typedError('That number and name don\u2019t match. Please see the front desk.');
+    }
+  } else {
+    // First time this number has been typed. Save it, then straight to the grid.
+    const next = loadState();
+    next.members[badgeId] = { name: clean, enrolledAt: new Date().toISOString() };
+    if (!saveState(next)) {
+      return typedError('Could not save. Please tell the front desk.');
+    }
+  }
+  lockInMember(badgeId, 'typed');
+}
+
+function wireTypedEntry() {
+  const open = document.getElementById('type-number-btn');
+  const go = document.getElementById('typed-continue');
+  const cancel = document.getElementById('typed-cancel');
+  if (open) open.addEventListener('click', openTypedEntry);
+  if (go) go.addEventListener('click', onTypedContinue);
+  if (cancel) cancel.addEventListener('click', returnToIdle);
+}
+wireTypedEntry();
 
 function wireQtyStepper() {
   const valueEl = document.getElementById('qty-value');
@@ -1607,7 +1762,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-18.3';
+var BUILD = '2026-09-18.4';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;
