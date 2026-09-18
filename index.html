@@ -1182,7 +1182,10 @@ function recordSale(product) {
  * ============================================================ */
 function createBatch() {
   const state = loadState();
-  const pendingSales = state.sales.filter(s => s.batchId === null);
+  // Voided sales are skipped: they have been corrected and must not be keyed
+  // into the POS. The sale itself stays in `sales` with its batchId untouched,
+  // so no history is rewritten and no id list ever shrinks.
+  const pendingSales = state.sales.filter(s => s.batchId === null && !s.voidedAt);
   if (pendingSales.length === 0) return null;
 
   const batchId = crypto.randomUUID();
@@ -1239,15 +1242,29 @@ function buildBatchReport(batchId) {
   if (!batch) return null;
 
   const batchSales = state.sales.filter(s => s.batchId === batchId);
-  const grouped = batchSales.reduce((acc, s) => {
+
+  // Report v2 whenever this batch — or anything in it — was written by a build
+  // that knows about v2. The second half of that test matters: a page still
+  // running pre-deploy code can batch a sale that a newer page typed or voided,
+  // and it will not have stamped anything. Rendering v2 on the strength of the
+  // sales alone means TYPED and VOID can never be hidden by a stale writer
+  // (PLAN §D3, review round 5).
+  if (isV2Batch(batch, batchSales)) return buildV2Report(batch, batchSales);
+
+  // ---- Legacy sheet, byte-for-byte what this batch was created with. ----
+  // Invariant 3: a batch already printed and keyed in must reprint identically.
+  // Truly old batches hold no voided sale (nothing could void one), so
+  // filtering them out below cannot change a legacy rendering.
+  const live = batchSales.filter(s => !s.voidedAt);
+  const grouped = live.reduce((acc, s) => {
     if (!acc[s.memberName]) acc[s.memberName] = [];
     acc[s.memberName].push(s);
     return acc;
   }, {});
 
   const members = Object.keys(grouped).sort();
-  const lineCount = batchSales.length;
-  const totalCents = batchSales.reduce((sum, s) => sum + s.price * s.qty, 0);
+  const lineCount = live.length;
+  const totalCents = live.reduce((sum, s) => sum + s.price * s.qty, 0);
   const shortId = batchId.slice(0, 8);
   const label = batchLabel(batch);
   const time = (s) => new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -1313,6 +1330,123 @@ function printBatch(batchId) {
   if (!report) return;
   document.getElementById('print-container').innerHTML = report.html;
   window.print();
+}
+
+/**
+ * Which report a batch gets (PLAN §D3). v2 when the batch itself was created by
+ * a v2 build, or when anything in it was written by one — the stale-writer
+ * case, where a page still running pre-deploy code batches a sale that a newer
+ * page typed or voided and stamps nothing of its own.
+ */
+function isV2Batch(batch, batchSales) {
+  return batch.reportV === 2 || batchSales.some(s => s.entry || s.voidedAt);
+}
+
+/** How a voided line reads on the sheet. Both renderings say the same thing. */
+function voidMark(sale) {
+  return sale.voidedBy === 'admin' ? 'VOID (admin)' : 'VOID (member undo)';
+}
+
+// The box the desk ticks by hand, once it has checked the number on a TYPED
+// line against the POS (PLAN §D4). Ticking it is the gate, not the kiosk.
+const DESK_CHECK_HTML = '<span class="desk-check">&#9744; desk checked</span>';
+const DESK_CHECK_TEXT = '\u2610 desk checked';
+
+/**
+ * Report v2 — the legacy sheet plus the three things the desk actually needs:
+ *
+ *   - a **Member #** column: the worker keys by self-typed name, and two
+ *     members sharing a name used to merge into a single group;
+ *   - **TYPED** on every line that was typed in rather than scanned, with a box
+ *     to tick once the number has been checked at the desk;
+ *   - **VOID** on any line that has been undone, excluded from the line count
+ *     and the total, so the sheet and the POS are asked for the same money.
+ */
+function buildV2Report(batch, batchSales) {
+  const live = batchSales.filter(s => !s.voidedAt);
+  const shortId = batch.id.slice(0, 8);
+  const label = batchLabel(batch);
+  const time = (s) => new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  // Grouped by badge, not by name. The badge is what the POS keys on and what
+  // the desk checks a typed line against, and it cannot be shared.
+  const badgeIds = [];
+  const grouped = {};
+  for (const s of batchSales) {
+    if (!grouped[s.badgeId]) { grouped[s.badgeId] = []; badgeIds.push(s.badgeId); }
+    grouped[s.badgeId].push(s);
+  }
+  badgeIds.sort();
+
+  const lineCount = live.length;
+  const totalCents = live.reduce((sum, s) => sum + s.price * s.qty, 0);
+  const memberCount = badgeIds.length;
+
+  const marksHtml = (s) => {
+    const out = [];
+    if (s.entry === 'typed') out.push('<span class="typed-mark">TYPED</span> ' + DESK_CHECK_HTML);
+    if (s.voidedAt) out.push('<span class="void-mark">' + escapeHtml(voidMark(s)) + '</span>');
+    return out.join(' ');
+  };
+
+  const html = `
+    <img class="brand-report" src="logo.png" width="520" height="183"
+         alt="Iron Jungle Family Fitness">
+    <h1>Counter sales</h1>
+    <p class="sub">
+      ${escapeHtml(label)} &middot; ${escapeHtml(shortId)} &middot;
+      ${lineCount} ${lineCount === 1 ? 'line' : 'lines'} &middot;
+      ${memberCount} ${memberCount === 1 ? 'member' : 'members'}
+    </p>
+    <table>
+      <thead>
+        <tr><th>Member</th><th>Member #</th><th>Item</th><th>Qty</th><th>Amount</th><th>Time</th><th>Desk</th></tr>
+      </thead>
+      <tbody>
+        ${badgeIds.map(id => grouped[id].map((s, i) => `
+          <tr class="${i === 0 ? 'member-start' : ''}${s.voidedAt ? ' void-row' : ''}">
+            <td>${i === 0 ? escapeHtml(s.memberName) : ''}</td>
+            <td>${escapeHtml(s.badgeId)}</td>
+            <td>${escapeHtml(s.productName)}</td>
+            <td>${s.qty}</td>
+            <td>${formatPrice(s.price * s.qty)}</td>
+            <td>${time(s)}</td>
+            <td>${marksHtml(s)}</td>
+          </tr>
+        `).join('')).join('')}
+        <tr class="total-row">
+          <td>Total</td><td></td><td></td><td></td>
+          <td>${formatPrice(totalCents)}</td><td></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+
+  // Same plain-text shape as the legacy sheet, so a shared copy still pastes
+  // into Notes and reads. The badge id rides on the group header line: that is
+  // what makes two members with one name two visible groups.
+  const lines = [
+    'Iron Jungle \u2014 counter sales',
+    label + ' (' + shortId + ')',
+    lineCount + (lineCount === 1 ? ' line' : ' lines') + ' \u00b7 ' +
+      memberCount + (memberCount === 1 ? ' member' : ' members'),
+    ''
+  ];
+  badgeIds.forEach(id => {
+    lines.push(grouped[id][0].memberName + ' \u2014 ' + id);
+    grouped[id].forEach(s => {
+      const marks = [];
+      if (s.entry === 'typed') marks.push('TYPED ' + DESK_CHECK_TEXT);
+      if (s.voidedAt) marks.push(voidMark(s).toUpperCase());
+      lines.push('  ' + s.productName.padEnd(20) +
+        ('x' + s.qty).padEnd(5) +
+        formatPrice(s.price * s.qty).padStart(8) + '  ' + time(s) +
+        (marks.length ? '  ' + marks.join('  ') : ''));
+    });
+  });
+  lines.push('', 'Total ' + formatPrice(totalCents));
+
+  return { batch, label, shortId, html, text: lines.join('\n'), lineCount, totalCents };
 }
 
 /* The batch currently open in the on-screen view, so its own Print and Share
@@ -1431,7 +1565,8 @@ function resetAdminLockout() {
 
 function pendingSaleCount() {
   const state = loadState();
-  return state.sales.filter(s => s.batchId === null).length;
+  // A voided sale is not waiting for anything: it must never reach the POS.
+  return state.sales.filter(s => s.batchId === null && !s.voidedAt).length;
 }
 
 function listAdminBatches() {
