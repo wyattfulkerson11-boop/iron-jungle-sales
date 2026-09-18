@@ -416,6 +416,7 @@
     <button class="btn-primary" id="create-batch-btn" onclick='doCreateBatch()'>Create batch</button>
     <span class="batch-meta" id="waiting-note"></span>
     <span class="spacer" style="flex:1"></span>
+    <span class="batch-meta" id="admin-status"></span>
     <button class="btn-danger" onclick='doClearData()'>Clear all data</button>
   </div>
 </div>
@@ -915,6 +916,7 @@ function enterIdle() {
   // paused one. startScanner() early-returns when an instance exists, so
   // calling only that left the camera paused forever after the first sale.
   if (scannerInstance) resumeScanner(); else startScanner();
+  armInactivityTimer();
 }
 
 /**
@@ -930,6 +932,7 @@ function enterLocked(badgeId) {
   pauseScanner();
   showScreen('locked');
   updateLockedScreen();
+  armInactivityTimer();
 }
 
 /**
@@ -942,6 +945,7 @@ function enterRecording() {
   const productButtons = document.querySelectorAll('.product-btn');
   productButtons.forEach(btn => btn.disabled = true);
   showScreen('locked'); // remain on locked screen
+  armInactivityTimer();
 }
 
 /**
@@ -960,6 +964,7 @@ function enterSuccess(sale) {
     <div class="success-who">Charged to ${escapeHtml(sale.memberName)}</div>
   `;
   showScreen('success');
+  armInactivityTimer();
   setTimeout(() => {
     // Clear the name off the screen before the next member walks up.
     document.getElementById('success').innerHTML = '';
@@ -983,6 +988,54 @@ function returnToIdle() {
 function armScanLockout() {
   scanLockoutUntil = Date.now() + LOCKOUT_MS;
 }
+
+/* ============================================================
+ * Item 1 — kiosk inactivity timeout
+ *
+ * A member who scans and walks away used to leave the kiosk sitting on THEIR
+ * grid with the camera paused, so the next person's tap billed the first
+ * member. The screens that are waiting for a person — locked, the enrollment
+ * form, typed entry — now fall back to idle after 45 s without a touch, and
+ * admin after 3 min. `recording` and `success` are never interrupted: neither
+ * is a dead end, and both end by themselves.
+ * ============================================================ */
+const KIOSK_IDLE_MS = 45 * 1000;
+const ADMIN_IDLE_MS = 180 * 1000;
+let inactivityTimer = null;
+
+/** How long the state we are in now may sit untouched. 0 means "no timeout". */
+function inactivityTimeoutMs() {
+  if (state === 'admin') return ADMIN_IDLE_MS;
+  if (state === 'locked' || state === 'typing') return KIOSK_IDLE_MS;
+  return 0;
+}
+
+/**
+ * (Re)start the countdown for the current state. Called on every state change
+ * and on every touch or keystroke, so any activity pushes the deadline out.
+ */
+function armInactivityTimer() {
+  if (inactivityTimer !== null) {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = null;
+  }
+  const ms = inactivityTimeoutMs();
+  if (ms > 0) inactivityTimer = setTimeout(onInactivityTimeout, ms);
+}
+
+function onInactivityTimeout() {
+  inactivityTimer = null;
+  // A sale in flight or a receipt being read is not an abandoned screen.
+  if (state === 'recording' || state === 'success' || state === 'idle') return;
+  returnToIdle();
+}
+
+// Capture phase, so a handler that stops propagation cannot hide the fact that
+// somebody is still standing there. mousedown is for smoke-testing on a laptop;
+// the counter itself only ever produces touchstart/input.
+['touchstart', 'input', 'mousedown'].forEach((type) => {
+  document.addEventListener(type, armInactivityTimer, { passive: true, capture: true });
+});
 
 /* ============================================================
  * UI / Screen management
@@ -1535,6 +1588,15 @@ function confirmBatch(batchId) {
 // on the counter.
 var ADMIN_PIN = '0311';
 
+/**
+ * Shown in the admin footer, and bumped on every deploy (PLAN §E2). It is the
+ * only way to tell a page still serving yesterday's shell from the one that was
+ * just pushed — a force-reload alone proves nothing when a service worker is
+ * between the browser and the network. `var`, not `let`: it is read from the
+ * console and from tests as a window property.
+ */
+var BUILD = '2026-09-18.2';
+
 let adminAttempts = 0;
 let adminLockoutUntil = 0;
 const ADMIN_MAX_ATTEMPTS = 3;
@@ -1585,6 +1647,13 @@ function clearAllData(confirmText) {
   const state = loadState();
   if (state.batches.some(b => b.status === 'pending')) {
     return { ok: false, reason: 'pending' };
+  }
+  // A day of un-pulled sales must not be one word from gone. Refusing only on a
+  // PENDING BATCH left the unbatched case wide open, and unbatched sales are
+  // exactly the ones nobody has copied out yet. Voided sales are not waiting for
+  // anything, so they do not hold the wipe up.
+  if (state.sales.some(s => s.batchId === null && !s.voidedAt)) {
+    return { ok: false, reason: 'waiting' };
   }
   if (confirmText !== 'CLEAR') {
     return { ok: false, reason: 'confirm' };
@@ -1660,17 +1729,28 @@ function renderAdmin() {
       ? 'Nothing waiting'
       : unexported + ' sale' + (unexported === 1 ? '' : 's') + ' waiting';
   }
+
+  // The build this page is actually running. Bumped on every deploy, and the
+  // only honest answer to "did the iPad pick the push up?" — a force-reload
+  // proves nothing while a service worker sits in front of the network.
+  const statusEl = document.getElementById('admin-status');
+  if (statusEl) statusEl.textContent = 'build ' + BUILD;
 }
 
 function doClearData() {
-  const count = pendingSaleCount();
+  // The old prompt offered to delete "N unexported sale(s)" — which was exactly
+  // what it used to do, and exactly what it must never do. Anything still
+  // waiting now blocks the wipe, so by the time a worker sees this dialog the
+  // only thing left to lose is members and already-keyed history.
   const r = clearAllData(prompt(
-    'This will permanently delete ' + count +
-    ' unexported sale(s), all members and all sales. Type CLEAR to confirm.'
+    'This permanently deletes all members and all keyed-in batches and sales. ' +
+    'Type CLEAR to confirm.'
   ));
   if (!r.ok) {
     alert(r.reason === 'pending'
-      ? 'Cannot clear while a batch is pending. Confirm it first.'
+      ? 'Cannot clear while a batch is pending. Confirm or void it first.'
+      : r.reason === 'waiting'
+      ? 'Cannot clear while sales are waiting. Create a batch, print it and key it in first.'
       : 'Clear cancelled — you must type CLEAR exactly.');
     return;
   }
@@ -1682,8 +1762,16 @@ function showAdminPinPrompt() {
   const pin = prompt('Admin PIN:');
   if (pin === null) return;
   if (tryAdminUnlock(pin)) {
+    // Admin is a state of its own, not just another screen. Without this the
+    // kiosk stayed `idle` with the scanner live behind the PIN gate, so a card
+    // in view while a worker was in admin fired enterLocked and yanked them
+    // onto a member's grid — and Confirm and Clear sat exposed to anyone who
+    // wandered up to the counter.
+    state = 'admin';
+    pauseScanner();
     renderAdmin();
     showScreen('admin');
+    armInactivityTimer();
   } else {
     const remaining = adminLockoutRemainingMs();
     alert(remaining > 0
