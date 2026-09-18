@@ -1,0 +1,14 @@
+{
+  "legacy-processed": {
+    "html": "\n    <img class=\"brand-report\" src=\"logo.png\" width=\"520\" height=\"183\"\n         alt=\"Iron Jungle Family Fitness\">\n    <h1>Counter sales</h1>\n    <p class=\"sub\">\n      Batch — Sep 15, 10:30 AM &middot; legacy-p &middot;\n      3 lines &middot;\n      2 members\n    </p>\n    <table>\n      <thead>\n        <tr><th>Member</th><th>Item</th><th>Qty</th><th>Amount</th><th>Time</th></tr>\n      </thead>\n      <tbody>\n        \n          <tr class=\"member-start\">\n            <td>Alice A.</td>\n            <td>Bang</td>\n            <td>1</td>\n            <td>$2.75</td>\n            <td>10:00 AM</td>\n          </tr>\n        \n          <tr>\n            <td></td>\n            <td>Water</td>\n            <td>1</td>\n            <td>$1.50</td>\n            <td>10:09 AM</td>\n          </tr>\n        \n          <tr class=\"member-start\">\n            <td>Bob B.</td>\n            <td>Quest Bar</td>\n            <td>2</td>\n            <td>$5.50</td>\n            <td>10:05 AM</td>\n          </tr>\n        \n        <tr class=\"total-row\">\n          <td>Total</td><td></td><td></td>\n          <td>$9.75</td><td></td>\n        </tr>\n      </tbody>\n    </table>\n  ",
+    "text": "Iron Jungle — counter sales\nBatch — Sep 15, 10:30 AM (legacy-p)\n3 lines · 2 members\n\nAlice A.\n  Bang                x1      $2.75  10:00 AM\n  Water               x1      $1.50  10:09 AM\nBob B.\n  Quest Bar           x2      $5.50  10:05 AM\n\nTotal $9.75",
+    "lineCount": 3,
+    "totalCents": 975
+  },
+  "legacy-pending": {
+    "html": "\n    <img class=\"brand-report\" src=\"logo.png\" width=\"520\" height=\"183\"\n         alt=\"Iron Jungle Family Fitness\">\n    <h1>Counter sales</h1>\n    <p class=\"sub\">\n      Batch — Sep 15, 11:10 AM &middot; legacy-p &middot;\n      1 line &middot;\n      1 member\n    </p>\n    <table>\n      <thead>\n        <tr><th>Member</th><th>Item</th><th>Qty</th><th>Amount</th><th>Time</th></tr>\n      </thead>\n      <tbody>\n        \n          <tr class=\"member-start\">\n            <td>Bob B.</td>\n            <td>Celsius Single Drink</td>\n            <td>1</td>\n            <td>$3.25</td>\n            <td>11:00 AM</td>\n          </tr>\n        \n        <tr class=\"total-row\">\n          <td>Total</td><td></td><td></td>\n          <td>$3.25</td><td></td>\n        </tr>\n      </tbody>\n    </table>\n  ",
+    "text": "Iron Jungle — counter sales\nBatch — Sep 15, 11:10 AM (legacy-p)\n1 line · 1 member\n\nBob B.\n  Celsius Single Drinkx1      $3.25  11:00 AM\n\nTotal $3.25",
+    "lineCount": 1,
+    "totalCents": 325
+  }
+}
