@@ -64,9 +64,9 @@ change is a one-line code edit plus a refresh; there is no product-management UI
 
 ## Changing the admin PIN
 
-`ADMIN_PIN` is a single named `var` in `index.html`, currently a four-digit
-placeholder. Change it before the iPad goes on the counter, and **never write
-the real one down in this repo** — it is public. The admin screen is reached by
+`ADMIN_PIN` is a single named `var` in `index.html`, set to the gym's real PIN
+since 2026-09-11. The repo is public, so it is readable there: it locks the
+admin screen on a staffed counter, it is not a secret. Don't repeat it in docs. The admin screen is reached by
 a long-press (~800ms) on the idle title, then the PIN; three wrong attempts
 trigger a 30s lockout.
 

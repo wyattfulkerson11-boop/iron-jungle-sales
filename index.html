@@ -359,6 +359,8 @@
   /* The waiting age past the loss window. Red is the only colour on this
      screen that means "money", and it means money not yet banked. */
   .age-warn { color: var(--danger); font-weight: 700; }
+  /* A voided line stays on the sheet as evidence, struck so nobody keys it. */
+  .void-row td:nth-child(3), .void-row td:nth-child(5) { text-decoration: line-through; }
   .btn-sm.solid { background: var(--ink); color: #fff; border-color: var(--ink); }
   /* Admin-only destructive-in-place control: the Void button on a Pending
      batch's lines and on a waiting sale. Outlined, not filled — it sits next
@@ -987,7 +989,10 @@ if (typeof window !== 'undefined' && window.addEventListener) {
  * Pages serves it from. Delivery layer only — nothing above depends on it.
  */
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
+  navigator.serviceWorker.register('sw.js').catch((e) => {
+    // No worker means no offline start, but the kiosk itself runs as before.
+    console.warn('Service worker not registered:', e);
+  });
 }
 
 /* ============================================================
@@ -1006,6 +1011,8 @@ let entryMode = 'scan';
 // Timestamp before which scans are ignored. A badge left sitting in frame
 // re-decodes continuously, so a plain "pause the camera" is not enough on its own.
 let scanLockoutUntil = 0;
+// Which card the lockout is for. null = every card (Cancel, timeout, Undo).
+let scanLockoutBadge = null;
 // The receipt — and with it the Undo — stays up for 5 s. It was 2 s: long
 // enough to see the item, not long enough to realise you tapped the wrong one
 // and do something about it. This is the member's only chance to say so.
@@ -1115,13 +1122,6 @@ function enterSuccess(sale) {
   `;
   const undo = document.getElementById('undo-btn');
   if (undo) undo.addEventListener('click', onUndoSale);
-  // The sale is rung up: from here the badge in front of the lens must not be
-  // able to ring up another one. Armed NOW rather than when the receipt closes,
-  // because the window is measured from the sale it protects. Arming it at the
-  // end of the receipt instead blocked the NEXT member — who scans the instant
-  // the screen clears — while the camera is off for the whole 5 s anyway, so a
-  // badge left in frame is already covered by the pause.
-  armScanLockout();
   showScreen('success');
   armInactivityTimer();
   // The handle is kept so Undo (and any early exit) can cancel it. The sale id
@@ -1134,6 +1134,11 @@ function enterSuccess(sale) {
     successSaleId = null;
     // Clear the name off the screen before the next member walks up.
     document.getElementById('success').innerHTML = '';
+    // Armed as the camera comes back, not at the sale: the camera is paused for
+    // the whole receipt, so a lockout that starts at the sale has expired by the
+    // time it could matter, and a card left on the counter reopens the tab.
+    // Only THAT card is locked out — the next member can scan straight away.
+    armScanLockout(sale.badgeId);
     enterIdle();
   }, SUCCESS_MS);
 }
@@ -1171,27 +1176,6 @@ function clearSuccessTimer() {
 }
 
 /**
- * Undo, from the receipt. The member is the only person who knows a mis-tap
- * happened, and this is the last second in which they can say so — after this
- * the sale is in a batch and only an admin can void it.
- */
-function onUndoSale() {
-  if (state !== 'success' || !successSaleId) return;
-  const saleId = successSaleId;
-  if (!voidSale(saleId, 'member-undo')) {
-    // The write failed, so the sale EXISTS. Saying nothing, or showing it as
-    // undone, would send the member away believing they were not charged.
-    alert('Could not undo that — please tell the front desk.');
-    returnToIdle();
-    return;
-  }
-  // The receipt described a sale that no longer exists: take it down with it.
-  successSaleId = null;
-  document.getElementById('success').innerHTML = '';
-  returnToIdle();
-}
-
-/**
  * Returns to idle from any state (e.g., cancel).
  */
 function returnToIdle() {
@@ -1203,8 +1187,9 @@ function returnToIdle() {
  * Secondary guard: ignore scans for LOCKOUT_MS after leaving a purchase, so a
  * badge still sitting in front of the camera cannot instantly start another one.
  */
-function armScanLockout() {
+function armScanLockout(badgeId) {
   scanLockoutUntil = Date.now() + LOCKOUT_MS;
+  scanLockoutBadge = badgeId || null;
 }
 
 /* ============================================================
@@ -1933,6 +1918,8 @@ function closeBatchView() {
 function onAdminVoidClick(e) {
   const btn = e.target && e.target.closest ? e.target.closest('[data-void]') : null;
   if (!btn) return;
+  // Irreversible — the first void wins — and it takes a charge off the sheet.
+  if (!confirm('Void this line? It will not be charged, and this cannot be undone.')) return;
   if (!voidSale(btn.getAttribute('data-void'), 'admin')) {
     alert('Could not void that line. If the batch has already been keyed in, ' +
           'correct it in the gym software.');
@@ -2003,8 +1990,8 @@ function confirmBatch(batchId) {
  * Task 8 — PIN-gated admin + the three Task 7 report gaps
  * ============================================================ */
 
-// FILL IN: placeholder admin PIN. Change to the real PIN before the iPad goes
-// on the counter.
+// The gym's real admin PIN, set 2026-09-11. The repo is public, so this is
+// readable: it locks the admin screen on a staffed counter, it is not a secret.
 var ADMIN_PIN = '0311';
 
 /**
@@ -2014,7 +2001,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-18.7';
+var BUILD = '2026-09-18.8';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;
@@ -2225,7 +2212,7 @@ function doClearData() {
   ));
   if (!r.ok) {
     alert(r.reason === 'pending'
-      ? 'Cannot clear while a batch is pending. Confirm or void it first.'
+      ? 'Cannot clear while a batch is pending. Key it in and confirm it first.'
       : r.reason === 'waiting'
       ? 'Cannot clear while sales are waiting. Create a batch, print it and key it in first.'
       : 'Clear cancelled — you must type CLEAR exactly.');
@@ -2488,10 +2475,6 @@ wireScannerRecovery();
 function onScanSuccess(decodedText) {
   // Primary guard: only accept scans from idle state
   if (state !== 'idle') return;
-  // Secondary guard: a badge left sitting in frame must not immediately
-  // re-trigger when the camera resumes after the previous sale.
-  if (Date.now() < scanLockoutUntil) return;
-
   // Reject anything that isn't shaped like a gym card BEFORE pausing the
   // camera — a garbage read must look like no read at all, not stall the kiosk.
   const badgeId = normalizeBadgeId(decodedText);
@@ -2499,6 +2482,11 @@ function onScanSuccess(decodedText) {
     console.warn('Ignoring implausible badge read:', decodedText);
     return;
   }
+
+  // Secondary guard: a badge left sitting in frame must not immediately
+  // re-trigger when the camera resumes after the previous sale.
+  if (Date.now() < scanLockoutUntil &&
+      (scanLockoutBadge === null || scanLockoutBadge === badgeId)) return;
 
   // Pause camera immediately (primary fix)
   pauseScanner();

@@ -13,7 +13,7 @@
  * tell which build is really running.
  */
 const CACHE = 'ij-shell-v1';
-const SHELL = ['./', 'index.html', 'logo.png', 'manifest.json', 'vendor/'];
+const SHELL = ['./', 'index.html', 'logo.png', 'manifest.json', 'vendor/html5-qrcode.min.js'];
 const NAV_TIMEOUT_MS = 3000;
 
 self.addEventListener('install', (event) => {

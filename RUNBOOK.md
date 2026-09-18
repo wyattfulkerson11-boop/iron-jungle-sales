@@ -11,17 +11,17 @@ Total: about 15 minutes at home, 20 at the counter.
 
 ### 1. Change the admin PIN ← do this first
 
-The repo is public, so the placeholder PIN that ships in `index.html` is readable
-by anyone. It only gates the admin screen on the physical iPad, but change it
-anyway.
+The real PIN has been set in `index.html` since 2026-09-11. The repo is public,
+so it is readable by anyone: it only gates the admin screen on the physical
+iPad, at a staffed counter. To change it:
 
 In `index.html`, find:
 
 ```js
-var ADMIN_PIN = '<the placeholder>';   // exactly one place sets this
+var ADMIN_PIN = '<the PIN>';   // exactly one place sets this
 ```
 
-Replace the string with your own PIN. Never commit the real one.
+Replace the string, commit, push. Don't repeat the PIN in any doc.
 
 ```bash
 git add index.html && git commit -m "chore: set admin PIN" && git push
@@ -267,8 +267,9 @@ self.addEventListener('activate', (event) => {
 });
 ```
 
-Reopen the app from the home screen. Do this only when the kiosk is idle and the
-sales are already pulled — a worker swap reloads the page.
+Reopen the app from the home screen. Sales are not touched: the kill switch
+deletes only the cached app shell, never `ij.v1` (checked in Chrome 2026-09-18).
+Until the real `sw.js` is back, the kiosk just can't open without wifi.
 
 ---
 
