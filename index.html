@@ -878,6 +878,11 @@ let state = 'idle';
 let currentBadgeId = null;
 let scannerInstance = null;
 let currentQty = 1;
+// How the member in front of the kiosk proved who they were: a scanned card, or
+// a typed member number (item 4). Every sale carries it, so the report can flag
+// a typed line for the desk to check. A sale with no `entry` is a scan — that is
+// every sale written before this existed, and it is the honest default.
+let entryMode = 'scan';
 // Timestamp before which scans are ignored. A badge left sitting in frame
 // re-decodes continuously, so a plain "pause the camera" is not enough on its own.
 let scanLockoutUntil = 0;
@@ -911,6 +916,8 @@ const MAX_QTY = 10;
 function enterIdle() {
   state = 'idle';
   currentBadgeId = null;
+  // The next member starts as a scan unless they say otherwise.
+  entryMode = 'scan';
   showScreen('idle');
   // First entry creates and starts the scanner; every later entry resumes the
   // paused one. startScanner() early-returns when an instance exists, so
@@ -1214,6 +1221,7 @@ function recordSale(product) {
     price: product.price,        // snapshot (cents)
     qty: currentQty,
     at: new Date().toISOString(),
+    entry: entryMode,            // 'scan' | 'typed' — how they identified
     batchId: null
   };
   
@@ -1249,7 +1257,11 @@ function createBatch() {
     createdAt: new Date().toISOString(),
     saleIds: pendingSales.map(s => s.id),
     status: 'pending',
-    processedAt: null
+    processedAt: null,
+    // Stamped on the batch itself so a later build knows this sheet may carry
+    // v2 columns. Batches created before this are read as legacy unless one of
+    // their sales was written by a v2 build (PLAN §D3).
+    reportV: 2
   };
   state.batches.push(batch);
   if (saveState(state)) return batch;
@@ -1595,7 +1607,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-18.2';
+var BUILD = '2026-09-18.3';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;
