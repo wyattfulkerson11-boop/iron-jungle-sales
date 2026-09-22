@@ -195,8 +195,12 @@ lines print marked **TYPED** with an empty **desk checked** box beside them.
 - **Tick the box by hand when it matches.** That tick is the whole point: it is
   the desk saying a human checked the one line on the sheet a member could have
   typed wrongly — on purpose or by accident.
-- The kiosk already refuses a number it doesn't know with a name that doesn't
-  match, so a wrong line should never reach the sheet. If one does, don't key it.
+- **The kiosk does not check that the number exists.** A number it has never
+  seen is signed up on the spot under whatever name was typed, and prints like
+  any other TYPED line. It only refuses a number it *already knows* when the
+  name doesn't match. So a mistyped number looks completely normal on the
+  sheet — your check against the gym software is the only thing that catches
+  it. If it doesn't match, don't key it.
 
 A voided line prints struck through with **VOID** and is already excluded from
 the total — don't key it, and don't chase it. If a line was voided *after* you
