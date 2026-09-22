@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Counter sign — Iron Jungle</title>
+<style>
+  /* One printable counter card. Open it and press Cmd+P → Print. Portrait,
+     no margins to fight with, fills a half sheet so it reads from arm's length
+     across the counter. Nothing here is loaded by the kiosk. */
+  @page { size: letter portrait; margin: 0.5in; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    color: #111;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 9in;
+  }
+  .card { width: 6.5in; max-width: 94vw; text-align: center; }
+  img { width: 4in; height: auto; margin-bottom: 0.45in; }
+  h1 {
+    font-size: 62px; line-height: 1.08; margin: 0 0 0.3in;
+    letter-spacing: -0.5px;
+  }
+  .arrow { font-size: 48px; margin: 0 0 0.25in; }
+  p.sub { font-size: 30px; line-height: 1.35; margin: 0 0 0.3in; color: #222; }
+  p.alt {
+    font-size: 25px; line-height: 1.35; margin: 0;
+    padding-top: 0.25in; border-top: 3px solid #111; color: #333;
+  }
+  .screen-only { margin: 24px auto 0; max-width: 6.5in; text-align: center; font-size: 14px; color: #666; }
+  @media print { .screen-only { display: none; } }
+</style>
+</head>
+<body>
+  <div class="card">
+    <img src="logo.png" alt="Iron Jungle Family Fitness">
+    <h1>Buying a drink<br>or a snack?</h1>
+    <p class="arrow">&#8681;</p>
+    <p class="sub"><strong>Scan your gym barcode</strong> on the iPad,<br>then tap what you're taking.</p>
+    <p class="alt">No card on you? Tap<br><strong>&ldquo;No card? Type your member number&rdquo;</strong></p>
+  </div>
+  <p class="screen-only">
+    Press Cmd+P and print at 100%. Laminate it, or slide it in a stand-up frame
+    beside the iPad. It has to be readable from where someone stands at the fridge.
+  </p>
+</body>
+</html>

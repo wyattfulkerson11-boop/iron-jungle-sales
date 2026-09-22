@@ -153,6 +153,11 @@ Start the real trial with an empty slate.
 
 ## Part 4 — Running the trial
 
+**Before the first sale: print the sign and brief the staff.** Both are in
+"What to watch for during the week" at the end of this document, along with the
+one number the week is judged on. Do that part first — a trial nobody was asked
+to take part in can't tell you anything.
+
 **Leave the paper sheet on the counter all week.** It costs nothing and it's the
 fallback if the iPad has a bad day. You're proving the iPad captures *more*, not
 proving the paper is gone.
@@ -305,3 +310,74 @@ deleted by this — nobody has to enrol again.
 The pitch is loss prevention, so the number that matters is the comparison:
 what the iPad captured vs. what the paper sheet captured over the same days. Keep
 the printed batches — that's your evidence at the end of the week.
+
+### The trial can only fail honestly if members are asked to use it
+
+A silent iPad next to a familiar pen and sheet loses by default — not because
+the kiosk is worse, but because nobody was ever told to touch it. If that
+happens, the week reads as "the kiosk didn't work" when what actually happened
+is "nobody tried it," and that's an expensive wrong lesson. Two things prevent
+it, and both cost nothing:
+
+**1. Print the sign.** Open `sign.html` on the laptop, Cmd+P, print at 100%.
+Laminate it or stand it in a frame right beside the iPad, where someone at the
+fridge can read it.
+
+**2. Say the sentence.** Every worker on shift, to anyone who walks up with a
+drink in their hand:
+
+> "Scan your barcode on the iPad there — it's the same as writing your name."
+
+That's the whole script. Don't explain the system, don't apologise for it, don't
+offer the paper as the easier option. If they're stuck, point at the sign.
+
+The paper sheet still stays on the counter all week — it's the fallback, not the
+default. Nobody gets turned away for using it.
+
+### Write the number down *before* Monday
+
+A trial with no threshold agreed in advance produces an argument, not a result:
+whatever the week returns, someone can call it a success and someone else can
+call it a failure. So the bar is set here, before the first sale, and it does not
+move afterwards.
+
+**The number:** of all purchases captured in a day, the share captured *on the
+iPad* — `iPad lines ÷ (iPad lines + paper lines)`.
+
+**The bar:** **80% or better, averaged over days 3, 4 and 5.** Days 1 and 2 are
+thrown out on purpose; they're the learning curve, and judging the week on them
+would be judging the novelty rather than the habit.
+
+**Decided in advance, so it can't be argued afterwards:**
+
+| Days 3–5 average | What it means | What happens next |
+|---|---|---|
+| **80% or more** | Members adopted it. The comparison is trustworthy. | Keep it. Move on to what the week's data says about the *catalog and the counter*, not about adoption. |
+| **50–79%** | An adoption problem, not a product problem. | Don't scrap it. Fix the prompting — better sign placement, staff actually saying the sentence — and re-run one week. |
+| **Under 50%** | Members won't use it as built. | Stop and go back to the owner. The friction is real and no amount of signage fixes it. |
+
+**A separate question, tracked but not part of the bar:** what share of the iPad
+lines came in **TYPED** rather than scanned. High typed volume means the desk
+gate is carrying more weight than anyone planned, and it's the one number that
+decides whether this is net-positive at the counter. Count it off the printed
+batches at the end of the week.
+
+### The daily tally — two numbers, thirty seconds
+
+Fill this in with a pen at the end of each day. `iPad lines` is the line count
+off that day's printed batches; `paper lines` is what you count on the sheet.
+
+| Day | iPad lines | Paper lines | iPad share |
+|---|---|---|---|
+| Mon (1) | | | |
+| Tue (2) | | | |
+| Wed (3) | | | |
+| Thu (4) | | | |
+| Fri (5) | | | |
+
+Two things that will muddy this, so don't be surprised by them: a member who
+writes on the sheet *and* scans gets counted twice — it's rare, ignore it rather
+than chasing it — and the paper count includes lines with no name or no item,
+which is precisely the mess the kiosk exists to stop. **Count those. They're the
+point.** A paper line nobody can bill is a sale the gym lost, and the whole
+argument for the kiosk is that it can't produce one.
