@@ -65,38 +65,53 @@ work — retention, storage headroom, the whole sizing argument — and it's an
 estimate. The week will answer it properly. Worth saying that the answer changes
 nothing about whether it works, only how long the device can hold history.
 
-## 3. The decision only he can make
+## 3. The one thing to tell him, not ask him
 
-**Does the paper sheet stay on the counter during the trial week, or go behind
-it?**
+**The paper sheet goes behind the counter for the trial week, not on it.** Staff
+hand it over the moment the kiosk can't take a sale, and write down why. Nobody
+is turned away; nobody is offered the pen first.
 
-- **On the counter:** members choose. Safe, no disruption, nobody's day gets
-  harder. But the week measures which one people *prefer*, and habit wins by
-  default — so a poor result won't tell you whether the kiosk is bad or just
-  unfamiliar. It also hides the number that matters most: with a pen sitting
-  right there, anyone whose card won't scan just writes instead of typing, so
-  the typed-entry path — the riskiest one, the one with a hand-ticked checkbox
-  as its only control — barely gets exercised.
+Say why, because it sounds harsher than it is:
 
-- **Behind the counter, handed out only when the kiosk can't take a sale:**
-  members use the iPad. The week then measures whether the system can actually
-  carry the gym's sales, and every time paper comes out it's a logged exception
-  with a reason attached. That's a better result and a harder week.
+> "If the pen's sitting there, everyone uses the pen — that's just habit, and
+> I'd learn nothing except that your members have hands. Behind the counter, the
+> week tells us whether this thing can actually carry your sales. Any time it
+> can't, your staff hand over the paper, no argument."
 
-The fallback is not in question either way — paper exists, and a member is never
-turned away. The only question is whether it's the default.
+The two things this buys, worth saying if he pushes back:
 
-**Recommendation: behind the counter.** Reasoning in §4.
+- **A result that means something.** With paper on the counter the week measures
+  which one members *prefer*, and a poor number can't distinguish "too much
+  friction" from "unfamiliar." Behind the counter it measures whether the system
+  works, which is the question the decision actually turns on.
+- **It tests the part most likely to hurt him.** The riskiest path is a member
+  typing their number instead of scanning — that's the one where a wrong number
+  looks completely normal on the sheet, and a hand-ticked checkbox is the only
+  control. With a pen in reach, anyone whose card won't scan just writes, so that
+  path barely gets used and the week ends having avoided its own weak point.
+
+**If he says no, that's his call and it's a reasonable one** — it's his counter
+and his members. It just changes what the week can conclude, and the metric in
+RUNBOOK.md has to change with it: back to comparing iPad lines against paper
+lines, with the caveat that a weak result won't be interpretable. Say that, then
+do whatever he decides.
 
 ## 4. What he gets at the end of the week
 
-One number, agreed before the first sale so nobody can argue it afterwards, plus
-the printed batches as evidence. The exact number depends on his answer in §3 —
-see "What to watch for during the week" in RUNBOOK.md, which is written for the
-paper-on-the-counter version and needs its metric swapped if he chooses the
-other.
+Two things, plus the printed batches as evidence.
+
+**An exception count.** Every time the kiosk couldn't take a sale, with a
+one-line reason. The bar is agreed before the first sale — 5 or fewer a day
+across days 3–5, and no single cause repeating three times in a day — and each
+outcome has a decision already attached to it, so the result can't be argued
+afterwards. Full table in "What to watch for during the week" in RUNBOOK.md.
+
+**The TYPED share.** What fraction of sales came in by someone typing their
+number rather than scanning. Not part of the bar, but it's the number that
+decides whether this is net-positive at his counter, because every typed line is
+a manual lookup for a worker.
 
 And one thing to say plainly at the end of the visit: **the trial can fail.**
-That's what it's for. A week that comes back "members wouldn't use it" is a
-result worth having, and it's cheaper to learn now than after the gym has
-reorganised its counter around it.
+That's what it's for. A week that comes back "this doesn't work at our counter"
+is a result worth having, and it's far cheaper to learn now than after the gym
+has reorganised around it.

@@ -155,12 +155,14 @@ Start the real trial with an empty slate.
 
 **Before the first sale: print the sign and brief the staff.** Both are in
 "What to watch for during the week" at the end of this document, along with the
-one number the week is judged on. Do that part first — a trial nobody was asked
-to take part in can't tell you anything.
+bar the week is judged against. Do that part first — a trial nobody was asked to
+take part in can't tell you anything.
 
-**Leave the paper sheet on the counter all week.** It costs nothing and it's the
-fallback if the iPad has a bad day. You're proving the iPad captures *more*, not
-proving the paper is gone.
+**The paper sheet goes behind the counter, not on it.** It is the fallback, not
+the default: a worker hands it over the moment the kiosk can't take a sale, and
+writes down why. Nobody is ever turned away — but nobody is offered the pen
+first, either. The week is measuring whether the iPad can carry the gym's sales,
+and it can't measure that against a pen sitting in front of the member.
 
 ### How a worker pulls the sales
 
@@ -307,17 +309,18 @@ deleted by this — nobody has to enrol again.
 
 ## What to watch for during the week
 
-The pitch is loss prevention, so the number that matters is the comparison:
-what the iPad captured vs. what the paper sheet captured over the same days. Keep
-the printed batches — that's your evidence at the end of the week.
+The pitch is loss prevention, and the paper sheet is behind the counter, so the
+number that matters is no longer a comparison — it's a count of **exceptions**:
+every time the kiosk couldn't take a sale and paper had to come out, and what
+caused it. A count with causes attached is worth more than a percentage, because
+each line of it is either something to fix or something to accept.
 
-### The trial can only fail honestly if members are asked to use it
+Keep the printed batches. Those plus the exception log are the evidence at the
+end of the week.
 
-A silent iPad next to a familiar pen and sheet loses by default — not because
-the kiosk is worse, but because nobody was ever told to touch it. If that
-happens, the week reads as "the kiosk didn't work" when what actually happened
-is "nobody tried it," and that's an expensive wrong lesson. Two things prevent
-it, and both cost nothing:
+### The trial only works if members are actually asked
+
+A silent iPad gets walked past. Two things prevent that, and both cost nothing:
 
 **1. Print the sign.** Open `sign.html` on the laptop, Cmd+P, print at 100%.
 Laminate it or stand it in a frame right beside the iPad, where someone at the
@@ -328,56 +331,78 @@ drink in their hand:
 
 > "Scan your barcode on the iPad there — it's the same as writing your name."
 
-That's the whole script. Don't explain the system, don't apologise for it, don't
-offer the paper as the easier option. If they're stuck, point at the sign.
+That's the whole script. Don't explain the system and don't apologise for it. If
+they're stuck, point at the sign. If they're stuck *and* the kiosk won't take the
+sale, that's an exception — hand over the paper and log it.
 
-The paper sheet still stays on the counter all week — it's the fallback, not the
-default. Nobody gets turned away for using it.
+### When to hand over the paper
 
-### Write the number down *before* Monday
+Hand it over immediately, no argument, no troubleshooting at the counter, any
+time the kiosk can't complete the sale:
 
-A trial with no threshold agreed in advance produces an argument, not a result:
-whatever the week returns, someone can call it a success and someone else can
-call it a failure. So the bar is set here, before the first sale, and it does not
-move afterwards.
+- the camera won't start, or won't read the card and the number isn't known
+- the screen is frozen, or says **"Another copy of the kiosk is open"**
+- the iPad is dead, updating, or missing
+- the member refuses, is in a hurry, or is annoyed — **hand it over, don't
+  persuade.** A member is never the person who pays for this trial.
 
-**The number:** of all purchases captured in a day, the share captured *on the
-iPad* — `iPad lines ÷ (iPad lines + paper lines)`.
+Then write one line in the log below. The line takes five seconds and is the
+single most valuable thing produced all week.
 
-**The bar:** **80% or better, averaged over days 3, 4 and 5.** Days 1 and 2 are
-thrown out on purpose; they're the learning curve, and judging the week on them
-would be judging the novelty rather than the habit.
+### The exception log
+
+One line per handover. Keep it on the clipboard with the paper.
+
+| Day | Time | What happened | Kiosk or paper in the end |
+|---|---|---|---|
+| | | | |
+| | | | |
+| | | | |
+| | | | |
+
+"What happened" in plain words — "camera wouldn't focus", "said another copy was
+open", "guy didn't want to" — is enough. Don't try to categorise it.
+
+### Write the bar down *before* Monday
+
+A trial with no threshold agreed in advance produces an argument, not a result.
+So it's set here, before the first sale, and it does not move afterwards.
+
+**The number:** exceptions per day — lines in the log above.
+
+**The bar:** **5 or fewer a day, averaged over days 3, 4 and 5, with no single
+cause appearing three or more times in one day.** Days 1 and 2 are thrown out on
+purpose: they're the learning curve, and judging the week on them judges the
+novelty rather than the system.
+
+The second half of that bar matters as much as the first. Five scattered
+one-offs is a system working with normal friction. Three of the same thing in
+one day is a defect wearing a low number.
 
 **Decided in advance, so it can't be argued afterwards:**
 
-| Days 3–5 average | What it means | What happens next |
+| Days 3–5 | What it means | What happens next |
 |---|---|---|
-| **80% or more** | Members adopted it. The comparison is trustworthy. | Keep it. Move on to what the week's data says about the *catalog and the counter*, not about adoption. |
-| **50–79%** | An adoption problem, not a product problem. | Don't scrap it. Fix the prompting — better sign placement, staff actually saying the sentence — and re-run one week. |
-| **Under 50%** | Members won't use it as built. | Stop and go back to the owner. The friction is real and no amount of signage fixes it. |
+| **≤5/day, no repeating cause** | It carries the gym's sales. | Keep it. The week's remaining questions are about the catalog and the counter, not about whether this works. |
+| **≤5/day, but one cause repeats** | It works, and one specific thing is broken. | Fix that one thing. Don't re-run the whole week for it. |
+| **6–15/day** | Real friction, not yet fatal. | Fix the top two causes in the log, re-run one week. Don't scrap it and don't ship it. |
+| **Over 15/day, or any outage nobody noticed for hours** | Not ready for a counter. | Stop. Back to the owner with the log — it says exactly why, which is worth more than the verdict. |
 
-**A separate question, tracked but not part of the bar:** what share of the iPad
-lines came in **TYPED** rather than scanned. High typed volume means the desk
-gate is carrying more weight than anyone planned, and it's the one number that
-decides whether this is net-positive at the counter. Count it off the printed
-batches at the end of the week.
+### The other number: how many lines are TYPED
 
-### The daily tally — two numbers, thirty seconds
+Now that the pen isn't on the counter, this finally means something. A member
+whose card won't scan has to type their number, so the **TYPED** share is a real
+measurement instead of the near-zero it would be with paper in front of them.
 
-Fill this in with a pen at the end of each day. `iPad lines` is the line count
-off that day's printed batches; `paper lines` is what you count on the sheet.
+Count it off the printed batches at the end of the week: TYPED lines ÷ all lines.
 
-| Day | iPad lines | Paper lines | iPad share |
-|---|---|---|---|
-| Mon (1) | | | |
-| Tue (2) | | | |
-| Wed (3) | | | |
-| Thu (4) | | | |
-| Fri (5) | | | |
+This isn't part of the bar — it's the number that decides whether this is
+net-positive *at the counter*, because every TYPED line is a member number a
+worker has to look up in the gym software by hand. Past about a quarter of all
+lines, the desk gate is carrying more weight than anyone planned for, and that's
+worth saying to the owner plainly whatever the exception count says.
 
-Two things that will muddy this, so don't be surprised by them: a member who
-writes on the sheet *and* scans gets counted twice — it's rare, ignore it rather
-than chasing it — and the paper count includes lines with no name or no item,
-which is precisely the mess the kiosk exists to stop. **Count those. They're the
-point.** A paper line nobody can bill is a sale the gym lost, and the whole
-argument for the kiosk is that it can't produce one.
+And watch the tone of it: a TYPED line that turns out to be a wrong number is the
+failure this whole design is most exposed to, because it looks completely normal
+on the sheet. If the desk check catches one, that's not a bad week — that's the
+control doing its job, and it's worth writing down.
