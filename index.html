@@ -271,6 +271,10 @@
     text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--ink-soft);
   }
   #typed-number:focus, #typed-name:focus { outline: 3px solid var(--plate-blue); outline-offset: 2px; }
+  /* .error is capped at 34ch and stretches from the left of the column, so its
+     centred text read as off-centre under the full-width inputs. Left-align it
+     with the fields it is talking about. */
+  #typed-error { max-width: 100%; text-align: left; }
   #type-number-btn { margin-top: 2px; }
 
   .btn-primary {
@@ -1864,10 +1868,13 @@ function buildV2Report(batch, batchSales, options) {
       const marks = [];
       if (s.entry === 'typed') marks.push('TYPED ' + DESK_CHECK_TEXT);
       if (s.voidedAt) marks.push(voidMark(s).toUpperCase());
-      lines.push('  ' + s.productName.padEnd(20) +
-        ('x' + s.qty).padEnd(5) +
-        formatPrice(s.price * s.qty).padStart(8) + '  ' + time(s) +
-        (marks.length ? '  ' + marks.join('  ') : ''));
+      // Separators, not padding: a shared copy lands as a .txt that iOS renders
+      // in a proportional font, where padded columns collapse into a mess.
+      lines.push('  ' + s.productName +
+        (s.qty > 1 ? ' x' + s.qty : '') +
+        ' \u2014 ' + formatPrice(s.price * s.qty) +
+        ' \u00b7 ' + time(s) +
+        (marks.length ? ' \u00b7 ' + marks.join(' \u00b7 ') : ''));
     });
   });
   lines.push('', 'Total ' + formatPrice(totalCents));
@@ -2001,7 +2008,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-18.8';
+var BUILD = '2026-09-22.9';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;

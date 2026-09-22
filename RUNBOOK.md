@@ -161,7 +161,10 @@ proving the paper is gone.
 
 1. Long-press the title → PIN → admin screen
 2. **Create New Batch** — snapshots everything not yet exported
-3. **Print** — save it as a PDF or print it
+3. **Print** — paper if a printer is set up, otherwise the print sheet's own
+   share button makes a **PDF** you can AirDrop or mail. Use Print for any copy
+   that leaves the iPad: the **Share** button sends plain text, which arrives as
+   a .txt with the columns collapsed (tested 2026-09-22)
 4. Key those sales into the gym software as usual
 5. **Only then** tap **Confirm Keyed**
 
