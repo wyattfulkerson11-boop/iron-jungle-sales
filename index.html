@@ -453,7 +453,8 @@
   <div class="typed-wrap">
     <h2 class="enroll-title">Type your member number</h2>
     <p class="hint" style="text-align:left">
-      It&rsquo;s on the front of your card. Then type the name it&rsquo;s saved under &mdash;
+      It&rsquo;s the number printed under the barcode on your keytag. Then type the name
+      it&rsquo;s saved under &mdash;
       we check it, so nobody can bill your number.
     </p>
     <input type="text" id="typed-number" placeholder="Member number" maxlength="32"
@@ -1518,7 +1519,7 @@ function onTypedContinue() {
   const nameEl = document.getElementById('typed-name');
   const badgeId = normalizeBadgeId(numberEl ? numberEl.value : '');
   if (!badgeId) {
-    return typedError('That doesn\u2019t look like a member number. Check the front of your card.');
+    return typedError('That doesn\u2019t look like a member number. It\u2019s under the barcode on your keytag.');
   }
   const clean = sanitizeName(nameEl ? nameEl.value : '');
   const typedName = clean ? normalizeNameForMatch(clean) : '';
@@ -2101,7 +2102,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-22.11';
+var BUILD = '2026-09-22.12';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;

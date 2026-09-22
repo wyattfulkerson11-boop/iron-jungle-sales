@@ -32,13 +32,10 @@ What he should expect to notice at the end of the week:
 These have been open since 2026-09-17 (PLAN §B). None of them blocked the build;
 all of them change how the trial is run or read.
 
-**Q1 — Does the keytag show the member number in readable digits?**
-*Ask to see a physical tag.* The typing screen currently tells a member "It's on
-the front of your card." Nobody has confirmed that's true — the eight photos on
-the laptop are POS screens and the fridge, no card. If the number isn't printed
-on the tag, that sentence is wrong on the one screen where a confused member
-decides whether to bother, and it needs rewording to whatever the tag actually
-shows. **This is the one with a code change attached, so ask it first.**
+**Q1 — Does the keytag show the member number?** ✅ **Answered 2026-09-22:
+yes, printed directly under the barcode.** The typing screen used to say "It's
+on the front of your card"; it now names the exact spot, which is what a member
+squinting at a keytag actually needs. Nothing left to ask here.
 
 **Q2 — Do member numbers ever look different from `IJG18399`?**
 Older members, comped or staff memberships, family accounts on one number. Only

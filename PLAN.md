@@ -30,7 +30,7 @@
 | # | Question | Answer |
 |---|---|---|
 | 1 | Key in once at EOD or per batch? | **Ask staff, pre-trial.** `TOLD` "i think" EOD. Item 7 works either way: both batches can be keyed at EOD. |
-| 2 | Number human-readable on the tag? | **Ask/look at a physical tag.** Not in the photos (A6). The build doesn't depend on it; the TYPED gate (item 3) covers both answers. |
+| 2 | Number human-readable on the tag? | `ANSWERED` 2026-09-22 (owner): **yes — printed directly under the barcode.** The typing screen said "on the front of your card"; now names the actual spot. |
 | 3 | Real number shapes beyond `IJG18399`? | **Ask owner.** Blocks only a tighter regex. Build with the existing `BADGE_RE`; tighten later at the one knob. |
 | 4 | Desk speed at number-by-name lookup? | **Ask owner.** Decides whether typed entry gets used, not how it's built. |
 | 5 | Midday batch acceptable to staff? | **Ask staff — pre-trial gate for item 7.** If they say no, item 7 falls back to EOD-only, and the trial runs with the full-day loss window stated plainly. |
