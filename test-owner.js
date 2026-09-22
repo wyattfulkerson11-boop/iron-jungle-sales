@@ -651,6 +651,66 @@ check('V5 the shared text has no monospace column padding (AirDrop makes a .txt)
   assert.ok(/— \$\d/.test(r.text), 'each item line names its price after a dash');
 });
 
+/* ============ Storage headroom (200 sales/day, owner 2026-09-22) ============ */
+
+/** Let the page write only `limit` characters in total, then throw like a full disk. */
+function capStorage(w, limit) {
+  const orig = w.Storage.prototype.setItem;
+  w.Storage.prototype.setItem = function (k, v) {
+    let used = 0;
+    for (let i = 0; i < this.length; i++) {
+      const key = this.key(i);
+      if (key !== k) used += key.length + (this.getItem(key) || '').length;
+    }
+    if (used + String(k).length + String(v).length > limit) throw new Error('QuotaExceededError');
+    return orig.call(this, k, v);
+  };
+  return () => { w.Storage.prototype.setItem = orig; };
+}
+
+check('V6 a probe key left behind by a killed measurement is cleared at load', () => {
+  const w = boot(fx.legacyState());
+  w.localStorage.setItem('ij.probe.0', 'x'.repeat(1000));
+  const w2 = boot(JSON.parse(w.localStorage.getItem('ij.v1')));
+  w2.localStorage.setItem('ij.probe.7', 'x'.repeat(1000));
+  w2.clearStorageProbes();
+  const keys = [];
+  for (let i = 0; i < w2.localStorage.length; i++) keys.push(w2.localStorage.key(i));
+  assert.ok(!keys.some(k => k.indexOf('ij.probe') === 0), 'probe leftovers must not eat the quota');
+  assert.ok(keys.indexOf('ij.v1') >= 0, 'real data untouched');
+});
+
+check('V7 measureStorageQuota finds the real ceiling, cleans up, and keeps the sales', () => {
+  const w = boot(fx.legacyState());
+  const before = w.loadState().sales.length;
+  const restore = capStorage(w, 600000);
+  const measured = w.measureStorageQuota();
+  restore();
+  assert.ok(measured > 300000 && measured <= 700000, 'measured ' + measured + ' should be near the 600k cap');
+  const keys = [];
+  for (let i = 0; i < w.localStorage.length; i++) keys.push(w.localStorage.key(i));
+  assert.ok(!keys.some(k => k.indexOf('ij.probe') === 0), 'probes cleaned up');
+  assert.strictEqual(w.loadState().sales.length, before, 'sales survive the measurement');
+  assert.strictEqual(w.loadState().quotaChars, measured, 'the measurement is remembered');
+});
+
+check('V8 admin shows storage use, measured when known and flagged when assumed', () => {
+  const w = boot(fx.legacyState());
+  openAdmin(w);
+  const assumed = $(w, 'storage-note').textContent;
+  assert.ok(/storage/i.test(assumed) && /%/.test(assumed), 'a percentage is shown: ' + assumed);
+  assert.ok(/assumed/i.test(assumed), 'an unmeasured budget must say so: ' + assumed);
+  const s = w.loadState();
+  // A budget this data already fills to ~80%, so the warning has to show.
+  s.quotaChars = Math.ceil(w.storageUsedChars() / 0.8);
+  w.saveState(s);
+  w.renderAdmin();
+  const measured = $(w, 'storage-note').textContent;
+  assert.ok(!/assumed/i.test(measured), 'once measured it stops guessing: ' + measured);
+  assert.ok($(w, 'storage-note').classList.contains('age-warn'),
+    'past the threshold it has to be visible, not just present');
+});
+
 /* ---------------- report ---------------- */
 
 let failed = 0;

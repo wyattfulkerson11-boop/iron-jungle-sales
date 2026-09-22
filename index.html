@@ -482,6 +482,8 @@
     <span class="batch-meta" id="waiting-note"></span>
     <span class="batch-meta age" id="waiting-age"></span>
     <span class="spacer" style="flex:1"></span>
+    <span class="batch-meta" id="storage-note"></span>
+    <button class="btn-sm" id="measure-storage-btn" onclick='doMeasureStorage()'>Check limit</button>
     <span class="batch-meta" id="admin-status"></span>
     <button class="btn-danger" onclick='doClearData()'>Clear all data</button>
   </div>
@@ -872,6 +874,8 @@ const STORAGE_KEY = 'ij.v1';
 function defaultState() {
   return {
     schema: 1,
+    // Measured once on the device (admin -> Check limit); null until then.
+    quotaChars: null,
     members: {},
     sales: [],
     batches: []
@@ -905,6 +909,8 @@ function loadState() {
   }
 
   const state = defaultState();
+  // A number measured on this device, so the admin readout stops guessing.
+  state.quotaChars = typeof parsed.quotaChars === 'number' ? parsed.quotaChars : null;
   state.members = parsed.members && typeof parsed.members === 'object' ? parsed.members : {};
   state.sales = Array.isArray(parsed.sales) ? parsed.sales : [];
   state.batches = Array.isArray(parsed.batches) ? parsed.batches : [];
@@ -938,6 +944,86 @@ function addSale(sale) {
   const state = loadState();
   state.sales.push(sale);
   return saveState(state);
+}
+
+/* ============================================================
+ * Storage headroom
+ *
+ * The owner's real volume is ~7-8 sheets a day at ~25 sales a sheet, so ~200
+ * sales a day — about 95k characters with their batch. Against the 5 MB that
+ * Safari has historically allowed (counted as 2 bytes a character, so ~2.5M
+ * chars) that is under a month before a sale cannot be saved, and the failure
+ * lands on a member at the counter. The budget is a guess until somebody
+ * measures the device, which is what measureStorageQuota is for.
+ * ============================================================ */
+
+/** Every character this origin is holding, keys included. */
+function storageUsedChars() {
+  let used = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      used += k.length + (localStorage.getItem(k) || '').length;
+    }
+  } catch (e) { return 0; }
+  return used;
+}
+
+const PROBE_PREFIX = 'ij.probe';
+const ASSUMED_QUOTA_CHARS = 2500000;
+const STORAGE_WARN_FRACTION = 0.6;
+
+/**
+ * Remove anything a measurement left behind. Called at startup as well: if iOS
+ * kills the app mid-probe, that filler would sit there eating the very quota
+ * the kiosk needs to record sales, and nothing else would ever clean it.
+ */
+function clearStorageProbes() {
+  try {
+    const doomed = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.indexOf(PROBE_PREFIX) === 0) doomed.push(k);
+    }
+    doomed.forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+}
+clearStorageProbes();
+
+/**
+ * Fill storage with filler until the browser refuses, then put it all back.
+ * Deliberately manual (admin -> Check limit): it briefly fills the device, so
+ * it is not something to run while a member is waiting to buy.
+ */
+function measureStorageQuota() {
+  clearStorageProbes();
+  const before = storageUsedChars();
+  const CHUNK = 50000;
+  const filler = new Array(CHUNK + 1).join('x');
+  let written = 0;
+  try {
+    // Capped so a browser with no limit at all cannot spin here forever.
+    for (let i = 0; i < 600; i++) {
+      localStorage.setItem(PROBE_PREFIX + '.' + i, filler);
+      written += filler.length + (PROBE_PREFIX + '.' + i).length;
+    }
+  } catch (e) {
+    // The refusal IS the measurement.
+  }
+  clearStorageProbes();
+  const measured = before + written;
+  const s = loadState();
+  s.quotaChars = measured;
+  saveState(s);
+  return measured;
+}
+
+/** Share of the budget in use, and whether that budget was measured or guessed. */
+function storageUsage() {
+  const quota = loadState().quotaChars;
+  const used = storageUsedChars();
+  const budget = quota || ASSUMED_QUOTA_CHARS;
+  return { used, budget, measured: !!quota, fraction: used / budget };
 }
 
 /* ============================================================
@@ -2008,7 +2094,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-22.9';
+var BUILD = '2026-09-22.10';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;
@@ -2186,6 +2272,18 @@ function renderAdmin() {
       : unexported + ' sale' + (unexported === 1 ? '' : 's') + ' waiting';
   }
 
+  // How close the device is to refusing a sale. The budget is a guess until
+  // somebody taps Check limit, and the readout says which it is.
+  const storeEl = document.getElementById('storage-note');
+  if (storeEl) {
+    const u = storageUsage();
+    const pct = Math.round(u.fraction * 100);
+    storeEl.textContent = 'storage ' + pct + '% of ' +
+      (u.budget / 500000).toFixed(1) + ' MB' + (u.measured ? '' : ' (assumed)');
+    if (u.fraction >= STORAGE_WARN_FRACTION) storeEl.classList.add('age-warn');
+    else storeEl.classList.remove('age-warn');
+  }
+
   // The build this page is actually running. Bumped on every deploy, and the
   // only honest answer to "did the iPad pick the push up?" — a force-reload
   // proves nothing while a service worker sits in front of the network.
@@ -2206,6 +2304,23 @@ function renderAdmin() {
       if (overdue) ageEl.classList.add('age-warn'); else ageEl.classList.remove('age-warn');
     }
   }
+}
+
+/**
+ * Measure this device's real limit. It fills storage on purpose, so it asks
+ * first and says what it found in the units the reader cares about: days.
+ */
+function doMeasureStorage() {
+  if (!confirm('This briefly fills storage to find the limit, then clears it again. ' +
+               'Sales are not touched. Do it now?')) return;
+  const measured = measureStorageQuota();
+  const used = storageUsedChars();
+  // ~474 characters a sale, measured from a simulated 200-sale day.
+  const salesLeft = Math.max(0, Math.floor((measured - used) / 474));
+  renderAdmin();
+  alert('Storage limit on this iPad: ' + (measured / 500000).toFixed(1) + ' MB.\n' +
+        'Room for roughly ' + salesLeft + ' more sales (about ' +
+        Math.floor(salesLeft / 200) + ' days at 200 a day).');
 }
 
 function doClearData() {
