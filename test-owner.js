@@ -641,6 +641,16 @@ check('V4 no function is declared twice in index.html (the later one silently wi
   assert.deepStrictEqual(dup, []);
 });
 
+check('V5 the shared text has no monospace column padding (AirDrop makes a .txt)', () => {
+  const w = boot(fx.v2State());
+  const r = w.buildBatchReport('v2-pending');
+  for (const line of r.text.split('\n')) {
+    assert.ok(!/\S {3,}\S/.test(line),
+      'padded columns collapse in a proportional font: ' + JSON.stringify(line));
+  }
+  assert.ok(/— \$\d/.test(r.text), 'each item line names its price after a dash');
+});
+
 /* ---------------- report ---------------- */
 
 let failed = 0;
