@@ -1,0 +1,14 @@
+mode: plan
+phase: done
+topic: "Iron Jungle kiosk owner-feedback plan per /Users/wyattfulkerson/Desktop/_tasks/hands-off/2026-09-18_iron-jungle-owner-feedback-handoff.md: typed member-number entry (3.1), day-of-sales loss window (3.2), accidental-item void while batch Pending (3.3); Scope: all three owner items fully specced as buildable, plus adjudication of handoff section 5 questions and a pre-trial ship/wait call; Constraints: handoff sections 4, 6, 7 and 9 as written (targeted edits to index.html, test files are the spec, no server/secret/payments/LAN push, origin never changes), plus thorough testing and on-device verification before the trial, no hard date; Worries: losing a day of sales, kiosk wedged at the counter"
+round: 6
+max_rounds: 5
+from_draft: false
+interview_used: true
+review_id: 20260918-143704-652a8e
+repo_root: /Users/wyattfulkerson/Desktop/Iron Jungle Purchase Project
+session_id: unknown
+started_at: 2026-09-18T14:37:04Z
+started_at_epoch: 1789742224
+last_updated_at: 2026-09-18T15:12:08Z
+decision_signal: max-reached
