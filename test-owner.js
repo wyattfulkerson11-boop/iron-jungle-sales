@@ -711,6 +711,72 @@ check('V8 admin shows storage use, measured when known and flagged when assumed'
     'past the threshold it has to be visible, not just present');
 });
 
+/* ============ Pruning keyed-in history (10.4 MB measured, ~54 days) ============ */
+
+/** A state with one old processed batch, one recent one, one pending, one waiting sale. */
+function historyState(w) {
+  const now = w.Date.now();
+  const iso = days => new Date(now - days * 86400000).toISOString();
+  const sale = (id, batchId, at) => ({ id, badgeId: 'IJG18301', memberName: 'Alice A.',
+    productId: 'bang', productName: 'Bang', sku: 'bang', price: 275, qty: 1, at, batchId, entry: 'scan' });
+  return {
+    schema: 1, quotaChars: null,
+    members: { IJG18301: { name: 'Alice A.', enrolledAt: iso(90) } },
+    sales: [sale('old1', 'b-old', iso(40)), sale('old2', 'b-old', iso(40)),
+            sale('recent', 'b-recent', iso(5)), sale('pend', 'b-pending', iso(1)),
+            sale('waiting', null, iso(0))],
+    batches: [
+      { id: 'b-old', createdAt: iso(41), saleIds: ['old1', 'old2'], status: 'processed', processedAt: iso(40), reportV: 2 },
+      { id: 'b-recent', createdAt: iso(6), saleIds: ['recent'], status: 'processed', processedAt: iso(5), reportV: 2 },
+      { id: 'b-pending', createdAt: iso(1), saleIds: ['pend'], status: 'pending', processedAt: null, reportV: 2 }
+    ]
+  };
+}
+
+check('V9 pruning drops processed history past 30 days and nothing else', () => {
+  const w = boot();
+  w.saveState(historyState(w));
+  assert.strictEqual(w.pruneProcessedHistory(), 1, 'one batch aged out');
+  const s = w.loadState();
+  assert.deepStrictEqual(plain(s.batches.map(b => b.id)), ['b-recent', 'b-pending']);
+  assert.deepStrictEqual(plain(s.sales.map(x => x.id)), ['recent', 'pend', 'waiting'],
+    'only the aged-out batch’s sales go');
+  assert.ok(s.members.IJG18301, 'members are not history — they must survive');
+  assert.strictEqual(w.pruneProcessedHistory(), 0, 'nothing left to prune');
+});
+
+check('V10 confirming a batch prunes, so the device never silently fills', () => {
+  const w = boot();
+  w.saveState(historyState(w));
+  assert.strictEqual(w.confirmBatch('b-pending'), true);
+  const s = w.loadState();
+  assert.ok(!s.batches.some(b => b.id === 'b-old'), 'the 40-day-old batch is gone');
+  assert.ok(s.batches.some(b => b.id === 'b-pending' && b.status === 'processed'), 'the confirm still happened');
+  assert.ok(!s.sales.some(x => x.id === 'old1'), 'its sales went with it');
+});
+
+check('V11 Clear keyed-in history takes every confirmed batch, keeps the rest', () => {
+  const w = boot();
+  w.saveState(historyState(w));
+  const r = w.clearKeyedHistory();
+  assert.strictEqual(r.batches, 2, 'both processed batches');
+  assert.strictEqual(r.sales, 3, 'their three sales');
+  const s = w.loadState();
+  assert.deepStrictEqual(plain(s.batches.map(b => b.id)), ['b-pending'], 'pending is not history');
+  assert.deepStrictEqual(plain(s.sales.map(x => x.id)), ['pend', 'waiting'], 'waiting sales stay');
+  assert.ok(s.members.IJG18301, 'nobody has to re-enrol');
+});
+
+check('V12 a failed write during a prune changes nothing', () => {
+  const w = boot();
+  w.saveState(historyState(w));
+  const restore = denyWrites(w);
+  assert.strictEqual(w.pruneProcessedHistory(), 0);
+  assert.strictEqual(w.clearKeyedHistory().batches, 0);
+  restore();
+  assert.strictEqual(w.loadState().batches.length, 3, 'everything still there');
+});
+
 /* ---------------- report ---------------- */
 
 let failed = 0;

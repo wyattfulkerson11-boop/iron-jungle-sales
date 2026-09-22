@@ -485,6 +485,7 @@
     <span class="batch-meta" id="storage-note"></span>
     <button class="btn-sm" id="measure-storage-btn" onclick='doMeasureStorage()'>Check limit</button>
     <span class="batch-meta" id="admin-status"></span>
+    <button class="btn-sm" onclick='doClearKeyedHistory()'>Clear keyed-in history</button>
     <button class="btn-danger" onclick='doClearData()'>Clear all data</button>
   </div>
 </div>
@@ -971,7 +972,9 @@ function storageUsedChars() {
 
 const PROBE_PREFIX = 'ij.probe';
 const ASSUMED_QUOTA_CHARS = 2500000;
-const STORAGE_WARN_FRACTION = 0.6;
+// 30 days of the owner's volume is ~55% of the measured 10.4 MB, so warning at
+// 60% would be an everyday sight and mean nothing. 75% is still ~10 days' room.
+const STORAGE_WARN_FRACTION = 0.75;
 
 /**
  * Remove anything a measurement left behind. Called at startup as well: if iOS
@@ -2076,7 +2079,11 @@ function confirmBatch(batchId) {
   if (batch.status === 'processed') return false;
   batch.status = 'processed';
   batch.processedAt = new Date().toISOString();
-  return saveState(state);
+  if (!saveState(state)) return false;
+  // Now that history has grown, drop whatever has aged out of the reprint
+  // window. After the confirm, so a failed prune can never lose the confirm.
+  pruneProcessedHistory();
+  return true;
 }
 
 /* ============================================================
@@ -2094,7 +2101,7 @@ var ADMIN_PIN = '0311';
  * between the browser and the network. `var`, not `let`: it is read from the
  * console and from tests as a window property.
  */
-var BUILD = '2026-09-22.10';
+var BUILD = '2026-09-22.11';
 
 let adminAttempts = 0;
 let adminLockoutUntil = 0;
@@ -2169,6 +2176,59 @@ function listAdminBatches() {
     return at >= cutoff;
   });
   return pending.concat(processed);
+}
+
+/* ============================================================
+ * Keeping the device under its ceiling
+ *
+ * Measured on the counter iPad 2026-09-22: 10.4 MB, about 54 days at the
+ * owner's ~200 sales a day. Nothing used to be deleted — the 30-day rule only
+ * hid old batches from this screen — so the kiosk would have stopped taking
+ * sales in under two months, at the counter, in front of a member.
+ *
+ * So confirmed history older than 30 days is deleted when a batch is confirmed:
+ * a worker is present, it is the moment history is made, and 30 days is the
+ * reprint window the runbook promises. Members are never touched — they are not
+ * history, and re-enrolling the gym would be a visible mess. The paper or PDF
+ * copy is the permanent record; this device is not an archive.
+ * ============================================================ */
+const HISTORY_DAYS = 30;
+
+/** Delete confirmed batches past the reprint window, and their sales. */
+function pruneProcessedHistory(nowMs) {
+  const state = loadState();
+  const cutoff = (nowMs || Date.now()) - HISTORY_DAYS * 24 * 60 * 60 * 1000;
+  const doomed = {};
+  let count = 0;
+  state.batches.forEach(b => {
+    if (b.status !== 'processed' || !b.processedAt) return;
+    if (new Date(b.processedAt).getTime() >= cutoff) return;
+    doomed[b.id] = true;
+    count++;
+  });
+  if (!count) return 0;
+  state.sales = state.sales.filter(s => !doomed[s.batchId]);
+  state.batches = state.batches.filter(b => !doomed[b.id]);
+  // A refused write leaves the old state intact, which is the safe direction.
+  return saveState(state) ? count : 0;
+}
+
+/**
+ * Every confirmed batch, whatever its age — the manual version, for a worker
+ * who needs room now. Pending batches and waiting sales are not history and
+ * stay; so do members.
+ */
+function clearKeyedHistory() {
+  const state = loadState();
+  const doomed = {};
+  let batches = 0;
+  state.batches.forEach(b => { if (b.status === 'processed') { doomed[b.id] = true; batches++; } });
+  if (!batches) return { batches: 0, sales: 0 };
+  const before = state.sales.length;
+  state.sales = state.sales.filter(s => !doomed[s.batchId]);
+  const sales = before - state.sales.length;
+  state.batches = state.batches.filter(b => !doomed[b.id]);
+  return saveState(state) ? { batches, sales } : { batches: 0, sales: 0 };
 }
 
 function clearAllData(confirmText) {
@@ -2321,6 +2381,19 @@ function doMeasureStorage() {
   alert('Storage limit on this iPad: ' + (measured / 500000).toFixed(1) + ' MB.\n' +
         'Room for roughly ' + salesLeft + ' more sales (about ' +
         Math.floor(salesLeft / 200) + ' days at 200 a day).');
+}
+
+/** Make room now: drop every confirmed batch, keep members and anything unkeyed. */
+function doClearKeyedHistory() {
+  if (!confirm('Delete every batch already keyed in, and its sales?\n\n' +
+               'Members keep their names. Nothing waiting or pending is touched. ' +
+               'You will not be able to reprint those batches from the iPad — the ' +
+               'printed copies stay your record.')) return;
+  const r = clearKeyedHistory();
+  renderAdmin();
+  alert(r.batches
+    ? 'Cleared ' + r.batches + ' keyed-in batch(es) and ' + r.sales + ' sale(s).'
+    : 'Nothing to clear — no batches have been keyed in yet.');
 }
 
 function doClearData() {

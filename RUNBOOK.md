@@ -276,6 +276,26 @@ Until the real `sw.js` is back, the kiosk just can't open without wifi.
 
 ---
 
+## Storage — the iPad is not an archive
+
+Measured on the counter iPad 2026-09-22: **10.4 MB**, about **54 days** at the
+owner's ~200 sales a day. The admin footer shows how full it is; **Check limit**
+re-measures it on any device.
+
+You do not have to manage this day to day. When a batch is confirmed, batches
+keyed in more than **30 days** ago are deleted along with their sales, so the
+device settles at about a month of history (~55% full). Members are never
+deleted by this — nobody has to enrol again.
+
+- **Clear keyed-in history** (admin): drops every batch already keyed in, right
+  now, when you need room. Pending batches, waiting sales and members all stay.
+- **The printed sheet or PDF is the permanent record.** After 30 days a batch
+  cannot be reprinted from the iPad. Keep the paper.
+- If the storage figure turns red (75%), pull and confirm what's waiting, then
+  clear keyed-in history.
+
+---
+
 ## What to watch for during the week
 
 The pitch is loss prevention, so the number that matters is the comparison:

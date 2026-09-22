@@ -132,9 +132,11 @@ using jsdom with the same `boot()` as `test-browser.js`. There are no new depend
    Being plain about the limits: enrollments aren't in any batch, so a lost iPad means members re-enter their names once.
    *Must fail if:* the oldest-waiting age is wrong or ignores voided/batched sales; (on device) AirPrint doesn't reach the
    desk printer (`UNMEASURED` until E3).
-8. **Waits, with triggers.** Pruning processed history older than 30 days, which keeps invariant 9. `VERIFIED` by
-   measurement: a v2 sale is 362 chars, so at a *guessed* 50 sales/day (`UNMEASURED` — get real volume from week 1) the
-   budget lasts ~138 days. Trigger: storage used > 40%. Until then the existing guard holds: a denied write never looks like success (invariant 4). "Backup now" JSON + restore (trigger: a real loss despite item 7, because restore is the dangerous
+8. **DONE 2026-09-22, trigger fired early.** The owner's real volume is ~200 sales/day (`TOLD`: 7-8 sheets x ~25),
+   4x the guess, and a simulated 200-sale day measured 474 chars/sale (`VERIFIED`). The iPad's real limit measured
+   **10.4 MB / ~54 days** (`VERIFIED` on device). So pruning shipped now: confirmed batches older than 30 days are
+   deleted when a batch is confirmed, plus a manual "Clear keyed-in history"; members are never touched, and the
+   printed/PDF copy is the archive. Steady state ~55% full; the admin readout warns at 75%. Until then the existing guard holds: a denied write never looks like success (invariant 4). "Backup now" JSON + restore (trigger: a real loss despite item 7, because restore is the dangerous
    half). Tighter `BADGE_RE` (trigger: Q3 answered). Home-screen monogram (trigger: owners send one).
 
 ## E0. Release order (one commit each, each deployable and revertable on its own)
