@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk Manual — Iron Jungle</title>
+<style>
+  /* The desk manual for staff. Open it and press Cmd+P → Print, then keep it in
+     a binder at the counter. Nothing here is loaded by the kiosk. The admin PIN
+     is deliberately NOT in this file — the repo is public. */
+  @page { size: letter portrait; margin: 0.6in; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    color: #111; font-size: 15px; line-height: 1.5;
+    max-width: 7.2in; margin: 0 auto; padding: 24px 16px;
+  }
+  header { text-align: center; margin-bottom: 20px; }
+  header img { width: 2.6in; height: auto; }
+  h1 { font-size: 30px; margin: 10px 0 4px; }
+  h2 {
+    font-size: 21px; margin: 28px 0 8px; padding-bottom: 4px;
+    border-bottom: 3px solid #111; break-after: avoid;
+  }
+  h3 { font-size: 16px; margin: 18px 0 4px; break-after: avoid; }
+  p, li { margin: 4px 0; }
+  ol, ul { padding-left: 24px; }
+  b.btn {
+    display: inline-block; border: 1.5px solid #111; border-radius: 5px;
+    padding: 0 6px; font-size: 13px; white-space: nowrap;
+  }
+  .say {
+    font-size: 20px; font-weight: 600; text-align: center;
+    border: 3px solid #111; border-radius: 10px; padding: 14px; margin: 12px 0;
+  }
+  .rule {
+    border-left: 6px solid #111; background: #f2f2f2;
+    padding: 8px 12px; margin: 12px 0; break-inside: avoid;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; break-inside: auto; }
+  th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #e6e6e6; }
+  tr { break-inside: avoid; }
+  .toc { columns: 2; font-size: 14px; }
+  .toc li { break-inside: avoid; }
+  .blank td { height: 30px; }
+  .page { break-before: page; }
+  .screen-only { text-align: center; font-size: 13px; color: #666; }
+  @media print { .screen-only { display: none; } }
+</style>
+</head>
+<body>
+
+<p class="screen-only">Press Cmd+P and print. Keep it in a binder at the counter.</p>
+
+<header>
+  <img src="logo.png" alt="Iron Jungle Family Fitness">
+  <h1>Counter iPad — Desk Manual</h1>
+  <p>Everything you need to run the drink &amp; snack iPad. Find your problem in the list, do what it says.</p>
+</header>
+
+<h2>Contents</h2>
+<ol class="toc">
+  <li>What the iPad does</li>
+  <li>Your job at the counter</li>
+  <li>How a member buys something</li>
+  <li>Helping a member who's stuck</li>
+  <li>When to hand over the paper sheet</li>
+  <li>Opening the admin screen</li>
+  <li>Pulling the sales (twice a day)</li>
+  <li>Checking TYPED and VOID lines</li>
+  <li>Cancelling a sale that shouldn't count</li>
+  <li>Something's wrong — quick fixes</li>
+  <li>Never do these</li>
+  <li>Who to ask</li>
+</ol>
+
+<h2>1. What the iPad does</h2>
+<p>It replaces the paper sheet where members write down drinks and snacks they take.</p>
+<ul>
+  <li>The member <b>scans their gym barcode</b> (keytag or phone) and <b>taps what they took</b>.</li>
+  <li>The iPad keeps a list. <b>Nobody pays on the iPad.</b></li>
+  <li>Twice a day, someone at the desk <b>prints the list</b> and <b>types it into the gym software</b> — just like the paper sheet.</li>
+</ul>
+<div class="rule">Sales are saved on the iPad itself. Closing the app or restarting the iPad does <b>not</b> lose them. They're only "safe for good" once they're typed into the gym software.</div>
+
+<h2>2. Your job at the counter</h2>
+<p>When someone walks up with a drink or snack, say this — that's the whole script:</p>
+<div class="say">"Scan your barcode on the iPad there — it's the same as writing your name."</div>
+<ul>
+  <li>Don't explain how it works. Don't apologise for it. If they're confused, point at the sign.</li>
+  <li>If it isn't working for them, <b>hand them the paper sheet</b> (section 5). Don't argue, don't troubleshoot while they wait.</li>
+  <li>The paper sheet lives <b>behind the counter</b>, not on it. Only bring it out when the iPad can't take the sale.</li>
+</ul>
+
+<h2>3. How a member buys something</h2>
+<table>
+  <tr><th>Step</th><th>What they do</th><th>What they see</th></tr>
+  <tr><td>1</td><td>Hold keytag or phone barcode in front of the camera — level, filling the frame side to side</td><td>The screen changes to the item menu</td></tr>
+  <tr><td>2</td><td><b>First time only:</b> type their name and tap <b class="btn">Save my name</b></td><td>"First time — what's your name?" It only asks once, ever.</td></tr>
+  <tr><td>3</td><td>Pick a tab (Energy, Protein Drinks, Water &amp; Sports, Bars &amp; Snacks). Use <b class="btn">+</b> / <b class="btn">−</b> for more than one. Tap the item.</td><td>"Hi, [name]" at the top</td></tr>
+  <tr><td>4</td><td>Done — walk away</td><td>A big coloured screen with a ✓, the item, and "Charged to [name]". Goes back to the scan screen after 5 seconds.</td></tr>
+</table>
+<p>If someone scans and walks off without tapping anything, the iPad goes back to the scan screen by itself after <b>45 seconds</b>. Nobody else can get charged to their name.</p>
+
+<h2>4. Helping a member who's stuck</h2>
+
+<h3>"The camera won't read my card."</h3>
+<ol>
+  <li>Hold it <b>flat and level</b>, in the middle, so the barcode fills the frame <b>side to side</b>. (The corner brackets are just decoration.)</li>
+  <li>Phone barcode? Turn the phone's brightness up and tilt it away from the ceiling lights.</li>
+  <li>Still no? Tap <b class="btn">No card? Type your member number</b> (see next).</li>
+  <li>Still no? Hand over the paper sheet.</li>
+</ol>
+
+<h3>"I don't have my card."</h3>
+<ol>
+  <li>On the scan screen, tap <b class="btn">No card? Type your member number</b>.</li>
+  <li>They type the number that's printed under the barcode on their keytag, plus their name, then <b class="btn">Continue</b>.</li>
+  <li>If it says <i>"That number and name don't match"</i>, the number belongs to someone else. <b>Don't try to get around it</b> — hand over the paper sheet.</li>
+</ol>
+<p>Sales typed this way print as <b>TYPED</b> so the desk can double-check them later (section 8).</p>
+
+<h3>"I tapped the wrong thing."</h3>
+<p>On the ✓ screen, tap <b class="btn">Undo — I didn't mean that</b> (they have 5 seconds). The sale is cancelled. Then scan again and pick the right one.</p>
+<p>Missed the 5 seconds? Tell the desk — someone with the PIN cancels it (section 9).</p>
+
+<h3>"It says the wrong name." / "That's not me."</h3>
+<p>Scan the card, then tap <b class="btn">Not you?</b> next to the name. It asks "Whose card is this?" — type the right name and save. Old sales keep the old name; new ones use the new name.</p>
+<p>If they tapped it by accident, <b class="btn">No, I'm [name]</b> goes back with nothing changed.</p>
+
+<h3>"I scanned, but I changed my mind."</h3>
+<p>Tap <b class="btn">Cancel</b> at the bottom. Nothing is charged.</p>
+
+<div class="page"></div>
+<h2>5. When to hand over the paper sheet</h2>
+<p>Hand it over <b>straight away, no argument</b>, any time the iPad can't take the sale:</p>
+<ul>
+  <li>The camera won't start, or won't read the card, and typing the number doesn't work</li>
+  <li>The screen is frozen, or says <b>"Another copy of the kiosk is open"</b></li>
+  <li>The iPad is dead, updating, or missing</li>
+  <li>The member doesn't want to use it, is in a hurry, or is annoyed. <b>Don't try to talk them into it.</b></li>
+</ul>
+<div class="rule"><b>Every time the paper comes out, write one line on the log</b> (it's on the clipboard with the paper). It takes 5 seconds. Plain words are fine: "camera wouldn't read", "guy didn't want to", "iPad was dead".</div>
+<table>
+  <tr><th style="width:12%">Day</th><th style="width:12%">Time</th><th>What happened</th><th style="width:22%">Ended up on: iPad or paper?</th></tr>
+  <tr class="blank"><td></td><td></td><td></td><td></td></tr>
+  <tr class="blank"><td></td><td></td><td></td><td></td></tr>
+  <tr class="blank"><td></td><td></td><td></td><td></td></tr>
+</table>
+<p style="font-size:13px">(Print extra copies of this page if you need more log lines.)</p>
+
+<h2>6. Opening the admin screen</h2>
+<ol>
+  <li>On the scan screen, <b>press and hold</b> the words <b>"Scan your gym barcode"</b> for about 1 second.</li>
+  <li>Type the <b>admin PIN</b> (ask your manager — it's never written down here).</li>
+  <li>You're on <b>Sales admin</b>. Tap <b class="btn">Back to kiosk</b> when you're done.</li>
+</ol>
+<ul>
+  <li>Wrong PIN 3 times = locked out for 30 seconds. Just wait.</li>
+  <li>Admin closes itself after <b>3 minutes</b> of nobody touching it. That's normal — reopen it.</li>
+  <li><b>Never leave admin open and walk away.</b></li>
+</ul>
+
+<h2>7. Pulling the sales (twice a day)</h2>
+<p><b>When:</b> once at <b>opening</b> and once at <b>midday</b>. Also any time the admin screen shows <b>"oldest waiting … — key it in"</b> in <span style="color:#c00;font-weight:600">red</span> (that means a sale has been sitting over 6 hours).</p>
+<ol>
+  <li>Open the admin screen (section 6).</li>
+  <li>Tap <b class="btn">Create batch</b>. This bundles up every sale waiting to be typed in. (Greyed out and says "Nothing waiting"? There's nothing to do.)</li>
+  <li>On the new batch, tap <b class="btn">View</b> and look it over.</li>
+  <li>Tap <b class="btn">Print</b>. No printer? On the print screen, use its share button to save/send it as a <b>PDF</b>.
+    <br><i>Always use Print, not the Share button — Share sends a messy text file.</i></li>
+  <li><b>Type every line into the gym software</b>, like you do with the paper sheet. Check TYPED and VOID lines as you go (section 8).</li>
+  <li><b>Only after every line is in the gym software</b>, tap <b class="btn">Confirm keyed</b>. The batch changes from <b>Pending</b> to <b>Keyed in</b>.</li>
+</ol>
+<div class="rule"><b>Never tap Confirm keyed before the sales are actually typed in.</b> Until you confirm, the batch stays Pending and you can reprint it exactly the same if the paper gets lost. Confirm too early and those sales could be missed.</div>
+<p><b>Keep the printed sheet.</b> The iPad forgets batches after 30 days — the paper is the permanent record. File it wherever your manager says.</p>
+<p>Got interrupted halfway? Nothing's lost. The batch stays <b>Pending</b>. Come back, <b class="btn">Print</b> it again, finish, then confirm.</p>
+
+<div class="page"></div>
+<h2>8. Checking TYPED and VOID lines</h2>
+<h3>TYPED lines</h3>
+<p>These are members who typed their number instead of scanning. They print with <b>TYPED</b> and an empty <b>☐ desk checked</b> box.</p>
+<ol>
+  <li>Look up the member number in the gym software.</li>
+  <li><b>Does the name match?</b> Type the sale in, and <b>tick the box by hand</b>.</li>
+  <li><b>Doesn't match, or the number doesn't exist?</b> <b>Don't type it in.</b> Write "no match" next to it and tell your manager.</li>
+</ol>
+<div class="rule">The iPad can't tell if a number is real. A mistyped number looks totally normal on the sheet. <b>Your check is the only thing that catches it</b> — so actually check, every time.</div>
+
+<h3>VOID lines</h3>
+<p>These are crossed out and marked <b>VOID</b>. They were cancelled and are <b>already left out of the total</b>. <b>Don't type them in.</b></p>
+<p>If a line got voided <i>after</i> you already typed it in, fix it in the gym software.</p>
+
+<h2>9. Cancelling a sale that shouldn't count</h2>
+<p>For when a member missed the 5-second Undo, or something got charged by mistake:</p>
+<ol>
+  <li>Open admin (section 6).</li>
+  <li>Find the sale under <b>Waiting to be batched</b> (or <b class="btn">View</b> the Pending batch it's in).</li>
+  <li>Tap <b class="btn">Void</b> on that line, then OK. <b>This can't be undone</b> — check it's the right line first.</li>
+</ol>
+<p>Batch already <b>Keyed in</b>? The iPad won't let you void it. Fix it in the gym software instead.</p>
+
+<h2>10. Something's wrong — quick fixes</h2>
+<table>
+  <tr><th style="width:38%">What you see</th><th>Do this</th></tr>
+  <tr><td>Card won't scan</td><td>Hold it level, centred, filling the frame side to side. Try the keytag instead of a phone. Wipe the camera lens. Then use "type your number" or the paper.</td></tr>
+  <tr><td>"Camera unavailable"</td><td>Close the app and reopen it from the home screen. Still broken? Paper sheet, and tell your manager. If there's a message in brackets, <b>write it down</b> — that's the real reason.</td></tr>
+  <tr><td>Camera picture frozen / nothing reads</td><td>Usually fixes itself. If not, close the app and reopen it from the home screen.</td></tr>
+  <tr><td>Whole screen frozen</td><td><b>Triple-click the side button</b>, enter the Guided Access code (ask your manager), close and reopen the app from the home screen, then triple-click again → Start.</td></tr>
+  <tr><td><b>"Another copy of the kiosk is open"</b></td><td>The app is open twice (probably in Safari too). Close the other one, then reload. Nothing is lost.</td></tr>
+  <tr><td>"Could not save that sale"</td><td>Tap the item again. If it keeps happening, the iPad is full: pull a batch (section 7) and tell your manager.</td></tr>
+  <tr><td>Storage number is red in admin</td><td>Pull and confirm a batch, then tap <b class="btn">Clear keyed-in history</b>. Safe — it only removes batches already typed in.</td></tr>
+  <tr><td>Screen went back to scanning on its own</td><td>Normal. It does that after 45 seconds of nobody tapping.</td></tr>
+  <tr><td>iPad dead</td><td>Plug it in. It should always stay plugged in. Paper sheet until it's back on. The sales are still there.</td></tr>
+  <tr><td>Anything else</td><td>Paper sheet, write it on the log, tell your manager.</td></tr>
+</table>
+
+<h2>11. Never do these</h2>
+<ul>
+  <li><b>Never tap "Clear all data."</b> That's for managers only. It deletes every member's name.</li>
+  <li><b>Never tap "Confirm keyed" before the sales are typed into the gym software.</b></li>
+  <li><b>Never open the kiosk in Safari</b> or type in a different web address. Only use the Iron Jungle icon on the home screen.</li>
+  <li><b>Never unplug the iPad</b> or turn off Guided Access and leave it that way.</li>
+  <li><b>Never give out the PIN</b> or leave admin open.</li>
+  <li><b>Never argue with a member about using it.</b> Hand them the paper.</li>
+</ul>
+
+<h2>12. Who to ask</h2>
+<table>
+  <tr class="blank"><th style="width:38%">Manager on duty</th><td></td></tr>
+  <tr class="blank"><th>Phone / text</th><td></td></tr>
+  <tr class="blank"><th>Where printed sheets get filed</th><td></td></tr>
+</table>
+
+</body>
+</html>

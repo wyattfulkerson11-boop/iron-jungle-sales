@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iPad Setup Guide — Iron Jungle</title>
+<style>
+  /* Setting up a new counter iPad, start to finish, for whoever at the gym is
+     doing it. Cmd+P → Print. Nothing here is loaded by the kiosk. The admin
+     PIN is deliberately NOT in this file — the repo is public. */
+  @page { size: letter portrait; margin: 0.6in; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    color: #111; font-size: 15px; line-height: 1.5;
+    max-width: 7.2in; margin: 0 auto; padding: 24px 16px;
+  }
+  header { text-align: center; margin-bottom: 20px; }
+  header img { width: 2.6in; height: auto; }
+  h1 { font-size: 30px; margin: 10px 0 4px; }
+  h2 {
+    font-size: 21px; margin: 28px 0 8px; padding-bottom: 4px;
+    border-bottom: 3px solid #111; break-after: avoid;
+  }
+  h3 { font-size: 16px; margin: 18px 0 4px; break-after: avoid; }
+  p, li { margin: 4px 0; }
+  ol, ul { padding-left: 24px; }
+  li { break-inside: avoid; }
+  b.btn {
+    display: inline-block; border: 1.5px solid #111; border-radius: 5px;
+    padding: 0 6px; font-size: 13px; white-space: nowrap;
+  }
+  .path { font-family: ui-monospace, Menlo, monospace; font-size: 13.5px; }
+  .url {
+    font-family: ui-monospace, Menlo, monospace; font-size: 15px; font-weight: 600;
+    border: 2px solid #111; border-radius: 8px; padding: 10px; margin: 8px 0;
+    text-align: center; word-break: break-all;
+  }
+  .rule {
+    border-left: 6px solid #111; background: #f2f2f2;
+    padding: 8px 12px; margin: 12px 0; break-inside: avoid;
+  }
+  .box::before { content: "☐ "; font-size: 18px; }
+  ul.check { list-style: none; padding-left: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #e6e6e6; }
+  tr { break-inside: avoid; }
+  .page { break-before: page; }
+  .screen-only { text-align: center; font-size: 13px; color: #666; }
+  @media print { .screen-only { display: none; } }
+</style>
+</head>
+<body>
+
+<p class="screen-only">Press Cmd+P and print. Tick the boxes as you go.</p>
+
+<header>
+  <img src="logo.png" alt="Iron Jungle Family Fitness">
+  <h1>Setting Up a New Counter iPad</h1>
+  <p>Start to finish, about <b>30 minutes</b>. Do it at the counter, with the stand and the charging cable where they'll live.</p>
+</header>
+
+<h2>What you need</h2>
+<ul class="check">
+  <li class="box">The iPad, charged or plugged in</li>
+  <li class="box">The long charging cable and the stand</li>
+  <li class="box">The gym Wi-Fi password</li>
+  <li class="box">The <b>admin PIN</b> for the kiosk (from the manager — it's never written down here)</li>
+  <li class="box">Your own gym keytag, and your phone with your gym barcode on it</li>
+  <li class="box">A 4–6 digit code to use for <b>Guided Access</b> (you'll make this up in Step 9 — give it to the manager)</li>
+</ul>
+
+<h2>Replacing an old iPad? Read this first</h2>
+<div class="rule">
+  <b>Sales don't move between iPads.</b> Each iPad keeps its own list. A new iPad starts completely empty.
+</div>
+<p>If the old iPad still turns on, <b>before you do anything else</b>:</p>
+<ol>
+  <li>On the old iPad, open admin (press and hold <b>"Scan your gym barcode"</b> for 1 second → PIN).</li>
+  <li>Tap <b class="btn">Create batch</b> → <b class="btn">Print</b> → type the sales into the gym software → <b class="btn">Confirm keyed</b>. (Same as a normal pull — see the Desk Manual, section 7.)</li>
+  <li>Check any other batch marked <b>Pending</b> — print and key those too.</li>
+  <li>Only now put the old iPad away.</li>
+</ol>
+<p>Old iPad dead and won't turn on? Any sales that weren't printed yet are gone. Tell the manager so they know.</p>
+<p><b>Members will be asked their name once more</b> the first time they scan on the new iPad. That's normal — warn the staff.</p>
+
+<h2>Step 1 — Basic iPad setup</h2>
+<p>Brand-new or just reset? Follow Apple's on-screen setup: pick English, connect to the <b>gym Wi-Fi</b>, and sign in with the gym's Apple account if it has one (skip it if not). Turn on nothing extra.</p>
+<p>Already set up? Just make sure it's on the gym Wi-Fi: <span class="path">Settings → Wi-Fi</span>.</p>
+
+<h2>Step 2 — Update the iPad</h2>
+<p><span class="path">Settings → General → Software Update</span>. If there's an update, install it now, before setup — not in the middle of a busy day.</p>
+
+<h2>Step 3 — Open the kiosk in Safari</h2>
+<p>Open <b>Safari</b> (the blue compass — <b>not Chrome</b>, the next step only works in Safari). Type this address exactly:</p>
+<div class="url">wyattfulkerson11-boop.github.io/iron-jungle-sales/</div>
+<p>You should see the Iron Jungle logo and <b>"Scan your gym barcode."</b></p>
+
+<h2>Step 4 — Add it to the Home Screen</h2>
+<ol>
+  <li>Tap the <b>Share</b> button (square with an arrow pointing up) at the top.</li>
+  <li>Scroll and tap <b class="btn">Add to Home Screen</b>.</li>
+  <li>Name it <b>Iron Jungle</b> → <b class="btn">Add</b>.</li>
+</ol>
+
+<h2>Step 5 — Close Safari for good</h2>
+<p>Swipe up from the bottom and hold to see open apps, then swipe Safari away.</p>
+<div class="rule"><b>From now on, only ever open the kiosk from the Iron Jungle icon.</b> Safari and the icon keep separate lists — sales tapped in Safari won't show up in the icon. And if both are open at once you'll get <b>"Another copy of the kiosk is open."</b></div>
+
+<h2>Step 6 — Open it from the icon and allow the camera</h2>
+<p>Tap the <b>Iron Jungle</b> icon. When it asks to use the camera, tap <b class="btn">Allow</b>.</p>
+<p>Tapped "Don't Allow" by mistake? <span class="path">Settings → Safari → Camera → Allow</span>, then close and reopen the icon.</p>
+<p>Leave it open for a minute on Wi-Fi. That lets it save itself so it still opens if the Wi-Fi drops later.</p>
+
+<div class="page"></div>
+<h2>Step 7 — Never let the screen turn off</h2>
+<p><span class="path">Settings → Display &amp; Brightness → Auto-Lock → Never</span></p>
+<p>Plug it in with the long cable and <b>leave it plugged in, always.</b></p>
+
+<h2>Step 8 — Put it on the stand</h2>
+<p>Set it where it'll actually live, facing where members stand at the fridge. Make sure the camera (top edge) isn't blocked by the stand and isn't pointing straight into a ceiling light.</p>
+
+<h2>Step 9 — Turn on Guided Access</h2>
+<p>Guided Access locks the iPad to the kiosk so members can't leave it or open other apps.</p>
+<ol>
+  <li><span class="path">Settings → Accessibility → Guided Access</span> → turn it <b>On</b>.</li>
+  <li>Tap <b>Passcode Settings → Set Guided Access Passcode</b>. Pick a code and <b>give it to the manager</b>.</li>
+  <li>Open the <b>Iron Jungle</b> icon.</li>
+  <li><b>Triple-click the side (top) button</b> → tap <b class="btn">Start</b> in the top right.</li>
+</ol>
+<p><b>To get out later:</b> triple-click the side button again → enter the code → <b class="btn">End</b>.</p>
+
+<h2>Step 10 — Check the storage (1 minute)</h2>
+<ol>
+  <li>Press and hold <b>"Scan your gym barcode"</b> for about 1 second → type the admin PIN.</li>
+  <li>At the bottom, tap <b class="btn">Check limit</b> → OK. Wait a few seconds.</li>
+  <li>It says how many MB and roughly how many sales fit. Write it here: <b>________ MB</b></li>
+</ol>
+<p>While you're there, note the <b>build</b> number at the bottom: <b>________________</b> (useful if something's wrong later). Tap <b class="btn">Back to kiosk</b>.</p>
+
+<div class="page"></div>
+<h2>Step 11 — Test everything</h2>
+<p>Do every line. Tick it if it works. If one fails, <b>stop and tell the manager</b> before members use it.</p>
+<table>
+  <tr><th style="width:4%"></th><th style="width:44%">Do this</th><th>It should…</th></tr>
+  <tr><td class="box"></td><td>Scan your keytag</td><td>Ask "First time — what's your name?"</td></tr>
+  <tr><td class="box"></td><td>Type your name → <b class="btn">Save my name</b></td><td>Show "Hi, [you]" and the items</td></tr>
+  <tr><td class="box"></td><td>Tap a drink</td><td>Show a big ✓ screen with "Charged to [you]", then go back to scanning after 5 seconds</td></tr>
+  <tr><td class="box"></td><td>Scan again, tap a drink, then tap <b class="btn">Undo — I didn't mean that</b> quickly</td><td>Go straight back to the scan screen (sale cancelled)</td></tr>
+  <tr><td class="box"></td><td>Scan again</td><td>Say "Hi, [you]" — no name question this time</td></tr>
+  <tr><td class="box"></td><td>Scan, then don't touch anything for 45 seconds</td><td>Go back to the scan screen on its own</td></tr>
+  <tr><td class="box"></td><td>Scan, then tap <b class="btn">Cancel</b></td><td>Go back to the scan screen, nothing charged</td></tr>
+  <tr><td class="box"></td><td><b>Scan the barcode on your phone</b> (brightness up, tilt away from lights)</td><td>Say "Hi, [you]" — same as the keytag. <i>This is the one most likely to struggle.</i></td></tr>
+  <tr><td class="box"></td><td>Tap <b class="btn">No card? Type your member number</b>. Type your number and a <b>wrong</b> name</td><td>Refuse: "That number and name don't match"</td></tr>
+  <tr><td class="box"></td><td>Same again with your <b>right</b> name → <b class="btn">Continue</b> → tap an item</td><td>Show the ✓ screen</td></tr>
+  <tr><td class="box"></td><td>Tap one item twice really fast</td><td>Record <b>one</b> sale, not two</td></tr>
+  <tr><td class="box"></td><td>Pull down hard on the screen</td><td>Nothing happens (no refresh)</td></tr>
+  <tr><td class="box"></td><td>Exit Guided Access, close the app, reopen from the icon, start Guided Access again</td><td>Still work. Your test sales are still in admin.</td></tr>
+  <tr><td class="box"></td><td>Turn Wi-Fi off, close and reopen the app, scan and buy something. Turn Wi-Fi back on.</td><td>Work normally without Wi-Fi</td></tr>
+  <tr><td class="box"></td><td>Admin → <b class="btn">Create batch</b> → <b class="btn">View</b></td><td>List your test sales with your member number. The typed one says <b>TYPED</b> with a check box. The undone one says <b>VOID</b>.</td></tr>
+  <tr><td class="box"></td><td><b class="btn">Print</b> → pick the desk printer (if there is one)</td><td>Print the sheet. No printer? Use the share button on the print screen to save a PDF instead.</td></tr>
+</table>
+<p><b>Card won't scan?</b> Hold it flat and level, in the middle, so the barcode fills the frame <b>side to side</b>. Wipe the camera lens.</p>
+
+<h2>Step 12 — Wipe your test sales</h2>
+<div class="rule"><b>Don't type the test sales into the gym software.</b> They're fake.</div>
+<ol>
+  <li>In admin, on the test batch you just made, tap <b class="btn">Confirm keyed</b>. (This is the one time you confirm without keying — they're only tests.)</li>
+  <li>Tap <b class="btn">Clear all data</b> → type <b>CLEAR</b> in capitals → OK.</li>
+  <li>It should say <b>"All data cleared."</b> and <b>"Nothing waiting."</b></li>
+</ol>
+<p>If it says it can't clear because sales are waiting or a batch is pending, you missed step 1 — make a batch of what's left and confirm it, then try again.</p>
+<p>Tap <b class="btn">Back to kiosk</b>. Make sure Guided Access is <b>on</b> (triple-click → Start).</p>
+
+<h2>Step 13 — Ready for members</h2>
+<ul class="check">
+  <li class="box">The counter sign is standing next to the iPad</li>
+  <li class="box">The paper sheet, the exception log and the clipboard are <b>behind</b> the counter</li>
+  <li class="box">The Desk Manual is in the binder at the counter</li>
+  <li class="box">The manager has the admin PIN and the Guided Access code</li>
+  <li class="box">Staff know members will be asked their name once more</li>
+  <li class="box">iPad is plugged in, on the stand, in Guided Access, showing "Scan your gym barcode"</li>
+</ul>
+
+<p style="margin-top:24px">Set up by: ______________________ &nbsp;&nbsp; Date: ____________</p>
+
+</body>
+</html>
