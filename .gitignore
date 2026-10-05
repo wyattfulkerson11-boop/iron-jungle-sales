@@ -5,3 +5,13 @@ node_modules/
 .claude/
 .hermes/
 Item lists and fridge/
+
+# secrets: never commit
+.env
+.env.*
+!.env.example
+.dev.vars
+
+# session-memory: state, and records (memory/ is its own private repo)
+.memory
+memory/

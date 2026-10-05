@@ -1,5 +1,9 @@
 {
   "dependencies": {
     "jsdom": "^30.0.1"
+  },
+  "scripts": {
+    "recap": "node \"$HOME/.claude/mods/session-memory/bin/memory.mjs\" recap",
+    "memory:status": "node \"$HOME/.claude/mods/session-memory/bin/memory.mjs\" status"
   }
 }
