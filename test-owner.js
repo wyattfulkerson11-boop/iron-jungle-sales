@@ -42,7 +42,13 @@ function boot(storage = null) {
       w.alert = () => {};
       w.print = () => {};
       w.prompt = () => null;
-      w.Date.now = () => now;
+      // new Date() must read the fake clock too, or sales get stamped with the
+      // real date and age-based tests break once the calendar passes the fixture.
+      const RealDate = w.Date;
+      w.Date = class extends RealDate {
+        constructor(...a) { super(...(a.length ? a : [now])); }
+        static now() { return now; }
+      };
       w.setTimeout = (fn, ms) => { const id = ++seq; timers.push({ id, at: now + (ms || 0), fn }); return id; };
       w.clearTimeout = (id) => { timers = timers.filter(t => t.id !== id); };
       w.setInterval = (fn, ms) => {

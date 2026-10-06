@@ -444,6 +444,31 @@ check('View opens the report on screen and Close puts it away', () => {
   assert.strictEqual(panel.hidden, true, 'Close hides it again');
 });
 
+check('going idle closes an open batch view', () => {
+  const w = boot().window;
+  enrollAndBuy(w, 'IJG18324', 'Left Open', 0);
+  const b = w.createBatch();
+  w.viewBatch(b.id);
+  w.returnToIdle(); // the admin inactivity timeout lands here
+  assert.strictEqual(w.document.getElementById('batch-view').hidden, true,
+    'names and Void buttons must not outlive the admin session');
+});
+
+check('Confirm keyed asks first, and a cancel changes nothing', () => {
+  const w = boot().window;
+  enrollAndBuy(w, 'IJG18325', 'Mis Tap', 0);
+  const b = w.createBatch();
+  let asked = 0;
+  w.alert = () => {};
+  w.confirm = () => { asked++; return false; };
+  w.doConfirmBatch(b.id);
+  assert.strictEqual(asked, 1, 'must ask before marking keyed');
+  assert.strictEqual(w.loadState().batches.find(x => x.id === b.id).status, 'pending');
+  w.confirm = () => true;
+  w.doConfirmBatch(b.id);
+  assert.strictEqual(w.loadState().batches.find(x => x.id === b.id).status, 'processed');
+});
+
 check('Share is hidden when the platform cannot share, and a cancel is silent', () => {
   const w = boot().window;
   enrollAndBuy(w, 'IJG18324', 'Sharer', 0);

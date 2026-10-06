@@ -1148,6 +1148,9 @@ function enterIdle() {
   currentBadgeId = null;
   // The next member starts as a scan unless they say otherwise.
   entryMode = 'scan';
+  // An open batch view would stay over the idle screen: names, numbers and
+  // Void buttons open to whoever walks up after the admin timeout.
+  closeBatchView();
   showScreen('idle');
   // First entry creates and starts the scanner; every later entry resumes the
   // paused one. startScanner() early-returns when an instance exists, so
@@ -2263,6 +2266,9 @@ function doCreateBatch() {
 }
 
 function doConfirmBatch(id) {
+  // Sits beside Print; a mis-tap would mark unkeyed sales as keyed, and a
+  // processed batch can't be voided or flagged afterwards.
+  if (!confirm('Mark this batch keyed in? Only do this once every line is in the gym software. It cannot be undone.')) return;
   if (confirmBatch(id)) {
     alert('Batch marked processed.');
     renderAdmin();

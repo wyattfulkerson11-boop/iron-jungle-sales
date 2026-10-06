@@ -63,10 +63,12 @@ load it on the iPad.
 ### 3. Confirm it still runs
 
 ```bash
-node test-browser.js && node test-task8.js && node test-fixes.js
+.git/hooks/pre-push
 ```
 
-All three should pass. If the catalog edit broke something, you'll see it here
+It runs all 8 suites, and it also runs on its own before every `git push` (a failure blocks the
+push). All should pass. The hook lives in `.git/`, so it isn't in the repo: on a new machine,
+copy it over before your first push. If the catalog edit broke something, you'll see it here
 instead of at the counter.
 
 ---
@@ -144,8 +146,13 @@ before you pitch it — physical cards may be the only reliable path.
 
 ### Then clear your test data
 
-Long-press the "Scan your gym barcode" title for about a second → enter your PIN
-→ **Clear all data** → type `CLEAR`.
+Long-press the "Scan your gym barcode" title for about a second → enter your PIN.
+Clear refuses while any sale is waiting or any batch is pending, so first:
+
+1. Make a batch of whatever test sales are waiting.
+2. Tap **Confirm keyed** on every pending test batch → OK. (The one time you confirm
+   without keying: they're fake.)
+3. **Clear all data** → type `CLEAR`. It should say "All data cleared." and "Nothing waiting."
 
 Start the real trial with an empty slate.
 
